@@ -10,11 +10,22 @@ import { foldersRouter } from './routes/folders-routes.js';
 import { usersRouter } from './routes/users-routes.js';
 
 const app = express();
+const allowedOrigins: readonly string[] = env.corsOrigin
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter((origin) => origin.length > 0);
 
+app.set('trust proxy', 1);
 app.use(helmet());
 app.use(
   cors({
-    origin: env.corsOrigin,
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, origin ?? allowedOrigins[0] ?? true);
+        return;
+      }
+      callback(new Error('Not allowed by CORS'));
+    },
     credentials: true,
   }),
 );

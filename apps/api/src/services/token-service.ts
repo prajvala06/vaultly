@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken';
-import type { Response } from 'express';
+import type { CookieOptions, Response } from 'express';
 import { env } from '../config/env.js';
 
 export type AccessTokenPayload = {
@@ -14,21 +14,20 @@ export function signAccessToken(payload: AccessTokenPayload): string {
   });
 }
 
-export function setAccessTokenCookie(res: Response, token: string): void {
-  res.cookie(env.cookieName, token, {
+function getAccessTokenCookieOptions(): CookieOptions {
+  return {
     httpOnly: true,
     secure: env.cookieSecure,
-    sameSite: 'lax',
+    sameSite: env.cookieSameSite,
     maxAge: env.accessTokenTtlSeconds * 1000,
     path: '/',
-  });
+  };
+}
+
+export function setAccessTokenCookie(res: Response, token: string): void {
+  res.cookie(env.cookieName, token, getAccessTokenCookieOptions());
 }
 
 export function clearAccessTokenCookie(res: Response): void {
-  res.clearCookie(env.cookieName, {
-    httpOnly: true,
-    secure: env.cookieSecure,
-    sameSite: 'lax',
-    path: '/',
-  });
+  res.clearCookie(env.cookieName, getAccessTokenCookieOptions());
 }

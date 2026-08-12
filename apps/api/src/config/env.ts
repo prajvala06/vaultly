@@ -15,14 +15,20 @@ function readOptional(name: string, fallback: string): string {
   return value && value.length > 0 ? value : fallback;
 }
 
+const cookieSecure: boolean = readOptional('COOKIE_SECURE', 'false') === 'true';
+const cookieSameSiteRaw: string = readOptional('COOKIE_SAME_SITE', cookieSecure ? 'none' : 'lax');
+const cookieSameSite: 'lax' | 'none' | 'strict' =
+  cookieSameSiteRaw === 'none' || cookieSameSiteRaw === 'strict' ? cookieSameSiteRaw : 'lax';
+
 export const env = {
   nodeEnv: readOptional('NODE_ENV', 'development'),
-  apiPort: Number(readOptional('API_PORT', '4000')),
+  apiPort: Number(process.env.PORT ?? readOptional('API_PORT', '4000')),
   corsOrigin: readOptional('CORS_ORIGIN', 'http://localhost:3000'),
   jwtAccessSecret: readOptional('JWT_ACCESS_SECRET', 'dev-only-change-me-to-a-long-random-secret'),
   accessTokenTtlSeconds: Number(readOptional('ACCESS_TOKEN_TTL_SECONDS', '900')),
   cookieName: readOptional('COOKIE_NAME', 'vaultly_access_token'),
-  cookieSecure: readOptional('COOKIE_SECURE', 'false') === 'true',
+  cookieSecure,
+  cookieSameSite,
   smtpHost: readOptional('SMTP_HOST', 'smtp.gmail.com'),
   smtpPort: Number(readOptional('SMTP_PORT', '587')),
   smtpUser: process.env.SMTP_USER?.trim() ?? '',
