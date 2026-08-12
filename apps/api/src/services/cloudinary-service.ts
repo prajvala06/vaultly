@@ -4,6 +4,9 @@ import { assertCloudinaryConfigured, env } from '../config/env.js';
 
 let isConfigured = false;
 
+/** Keep assets non-public on Cloudinary; Vaultly gates access via /api/files/:id/content. */
+export const CLOUDINARY_ACCESS_TYPE = 'authenticated' as const;
+
 export function configureCloudinary(): void {
   if (isConfigured) {
     return;
@@ -45,12 +48,13 @@ export function buildCloudinaryDownloadUrl(input: {
   resourceType: string;
   originalName: string;
   mimeType: string;
+  accessType?: 'authenticated' | 'upload' | 'private';
 }): string {
   configureCloudinary();
   const format: string = resolveCloudinaryFormat(input.originalName, input.mimeType);
   return cloudinary.utils.private_download_url(input.publicId, format, {
     resource_type: input.resourceType,
-    type: 'upload',
+    type: input.accessType ?? CLOUDINARY_ACCESS_TYPE,
   });
 }
 
@@ -60,38 +64,20 @@ export async function fetchCloudinaryAsset(input: {
   originalName: string;
   mimeType: string;
 }): Promise<Response> {
-  const downloadUrl: string = buildCloudinaryDownloadUrl(input);
-  const response: Response = await fetch(downloadUrl);
-  return response;
-}
-
-export async function createSignedUploadParams(input: {
-  userId: string;
-  folder?: string;
-}): Promise<{
-  cloudName: string;
-  apiKey: string;
-  timestamp: number;
-  signature: string;
-  folder: string;
-}> {
-  configureCloudinary();
-  const timestamp: number = Math.round(Date.now() / 1000);
-  const folder: string = input.folder ?? `${env.cloudinaryFolder}/${input.userId}`;
-  const paramsToSign: Record<string, string | number> = {
-    timestamp,
-    folder,
-    use_filename: 'true',
-    unique_filename: 'true',
-  };
-  const signature: string = cloudinary.utils.api_sign_request(paramsToSign, env.cloudinaryApiSecret);
-  return {
-    cloudName: env.cloudinaryCloudName,
-    apiKey: env.cloudinaryApiKey,
-    timestamp,
-    signature,
-    folder,
-  };
+  const authenticatedUrl: string = buildCloudinaryDownloadUrl({
+    ...input,
+    accessType: 'authenticated',
+  });
+  const authenticatedResponse: Response = await fetch(authenticatedUrl);
+  if (authenticatedResponse.ok) {
+    return authenticatedResponse;
+  }
+  // Older assets may still be public `upload` type.
+  const publicUrl: string = buildCloudinaryDownloadUrl({
+    ...input,
+    accessType: 'upload',
+  });
+  return fetch(publicUrl);
 }
 
 export async function uploadBufferToCloudinary(input: {
@@ -106,6 +92,7 @@ export async function uploadBufferToCloudinary(input: {
       {
         folder: input.folder,
         resource_type: 'auto',
+        type: CLOUDINARY_ACCESS_TYPE,
         use_filename: true,
         unique_filename: true,
         filename_override: input.originalName,
@@ -134,7 +121,15 @@ export async function deleteCloudinaryAsset(input: {
   resourceType: string;
 }): Promise<void> {
   configureCloudinary();
+  const authenticatedResult = await cloudinary.uploader.destroy(input.publicId, {
+    resource_type: input.resourceType,
+    type: CLOUDINARY_ACCESS_TYPE,
+  });
+  if (authenticatedResult.result === 'ok' || authenticatedResult.result === 'not found') {
+    return;
+  }
   await cloudinary.uploader.destroy(input.publicId, {
     resource_type: input.resourceType,
+    type: 'upload',
   });
 }

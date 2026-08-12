@@ -2,7 +2,7 @@ import { Readable } from 'node:stream';
 import { Router } from 'express';
 import multer from 'multer';
 import { ZodError } from 'zod';
-import { completeCloudinaryUploadSchema, updateFileSchema } from '@vaultly/shared';
+import { updateFileSchema } from '@vaultly/shared';
 import { env } from '../config/env.js';
 import { HttpError, sendSuccess } from '../lib/http.js';
 import {
@@ -12,8 +12,6 @@ import {
   type OptionallyAuthenticatedRequest,
 } from '../middleware/require-auth.js';
 import {
-  completeCloudinaryUpload,
-  createUploadSignature,
   deleteUserFile,
   getSharedFile,
   listFilesSharedWithUser,
@@ -107,41 +105,6 @@ filesRouter.get('/', requireAuth, async (req, res, next) => {
     const result = await listUserFiles(authReq.auth.sub, { trashed });
     return sendSuccess(res, result);
   } catch (error) {
-    return next(error);
-  }
-});
-
-filesRouter.post('/upload-signature', requireAuth, async (req, res, next) => {
-  try {
-    const authReq = req as AuthenticatedRequest;
-    const bytesRaw: unknown = req.body?.bytes;
-    const bytes: number = typeof bytesRaw === 'number' ? bytesRaw : Number(bytesRaw);
-    if (!Number.isFinite(bytes)) {
-      throw new HttpError(400, 'FILE_SIZE_REQUIRED', 'Provide the file size in bytes.');
-    }
-    const result = await createUploadSignature({
-      userId: authReq.auth.sub,
-      bytes,
-    });
-    return sendSuccess(res, result);
-  } catch (error) {
-    return next(error);
-  }
-});
-
-filesRouter.post('/complete-upload', requireAuth, async (req, res, next) => {
-  try {
-    const authReq = req as AuthenticatedRequest;
-    const body = completeCloudinaryUploadSchema.parse(req.body);
-    const result = await completeCloudinaryUpload({
-      userId: authReq.auth.sub,
-      body,
-    });
-    return sendSuccess(res, result, 201);
-  } catch (error) {
-    if (error instanceof ZodError) {
-      return next(mapZodError(error));
-    }
     return next(error);
   }
 });

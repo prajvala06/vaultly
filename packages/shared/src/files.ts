@@ -75,28 +75,6 @@ export type UploadFileResponse = {
   storage: StorageSummaryDto;
 };
 
-export type UploadSignatureResponse = {
-  cloudName: string;
-  apiKey: string;
-  timestamp: number;
-  signature: string;
-  folder: string;
-  maxFileSizeBytes: number;
-};
-
-export const completeCloudinaryUploadSchema = z.object({
-  publicId: z.string().trim().min(1, 'Cloudinary public id is required.'),
-  secureUrl: z.url('Enter a valid Cloudinary URL.'),
-  bytes: z.number().int().positive('File size must be greater than zero.'),
-  resourceType: z.string().trim().min(1, 'Cloudinary resource type is required.'),
-  originalName: z.string().trim().min(1, 'Enter a file name.').max(255),
-  mimeType: z.string().trim().min(1).max(255).optional(),
-  visibility: z.enum(FILE_VISIBILITY_VALUES).optional(),
-  folderId: z.string().trim().min(1).nullable().optional(),
-});
-
-export type CompleteCloudinaryUploadInput = z.infer<typeof completeCloudinaryUploadSchema>;
-
 export type UpdateFileResponse = {
   file: VaultFileDto;
   storage: StorageSummaryDto;
