@@ -1,3 +1,4 @@
+import type { CorsOptions } from 'cors';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import express from 'express';
@@ -12,18 +13,28 @@ import { usersRouter } from './routes/users-routes.js';
 const app = express();
 const allowedOrigins: readonly string[] = parseCorsOrigins(env.corsOrigin);
 
+const corsOptions: CorsOptions = {
+  origin: (origin, callback) => {
+    if (!origin || isAllowedCorsOrigin(origin, allowedOrigins)) {
+      callback(null, origin ?? allowedOrigins[0] ?? true);
+      return;
+    }
+    console.warn(`CORS blocked request from origin: ${origin}. Allowed: ${allowedOrigins.join(', ')}`);
+    callback(null, false);
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  optionsSuccessStatus: 204,
+};
+
 app.set('trust proxy', 1);
-app.use(helmet());
+app.use(cors(corsOptions));
+app.options(/.*/, cors(corsOptions));
 app.use(
-  cors({
-    origin: (origin, callback) => {
-      if (!origin || isAllowedCorsOrigin(origin, allowedOrigins)) {
-        callback(null, origin ?? allowedOrigins[0] ?? true);
-        return;
-      }
-      callback(null, false);
-    },
-    credentials: true,
+  helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+    crossOriginEmbedderPolicy: false,
   }),
 );
 app.use(express.json({ limit: '1mb' }));
@@ -48,4 +59,6 @@ app.use(errorHandler);
 
 app.listen(env.apiPort, () => {
   console.log(`Vaultly API listening on port ${env.apiPort}`);
+  console.log(`CORS allowed origins: ${allowedOrigins.join(', ')}`);
+  console.log(`Cookie secure=${env.cookieSecure}, sameSite=${env.cookieSameSite}`);
 });

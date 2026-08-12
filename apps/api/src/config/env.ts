@@ -60,7 +60,10 @@ export function assertCloudinaryConfigured(): void {
 }
 
 export function normalizeOrigin(origin: string): string {
-  return origin.trim().replace(/\/+$/, '');
+  return origin
+    .trim()
+    .replace(/^['"]+|['"]+$/g, '')
+    .replace(/\/+$/, '');
 }
 
 export function parseCorsOrigins(raw: string): string[] {
