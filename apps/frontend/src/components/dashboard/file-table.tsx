@@ -58,9 +58,7 @@ export function FileTable({
               <th className="px-4 py-3.5 font-semibold">Size</th>
               <th className="px-4 py-3.5 font-semibold">Visibility</th>
               <th className="px-4 py-3.5 font-semibold">Modified</th>
-              <th className="px-4 py-3.5 font-semibold">
-                <span className="sr-only">Actions</span>
-              </th>
+             
             </tr>
           </thead>
           <tbody>
@@ -93,16 +91,6 @@ export function FileTable({
                     <VisibilityBadge visibility={file.visibility} />
                   </td>
                   <td className="px-4 py-3.5 text-vaultly-ink-soft">{file.modifiedLabel}</td>
-                  <td className="px-4 py-3.5 text-right">
-                    <button
-                      type="button"
-                      aria-label={`Actions for ${file.name}`}
-                      onClick={(event) => event.stopPropagation()}
-                      className="rounded-full p-1.5 text-vaultly-muted transition-colors hover:bg-vaultly-accent-soft hover:text-vaultly-accent"
-                    >
-                      <MoreIcon className="h-4 w-4" />
-                    </button>
-                  </td>
                 </tr>
               );
             })}

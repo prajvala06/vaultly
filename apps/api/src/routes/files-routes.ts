@@ -2,6 +2,7 @@ import { Readable } from 'node:stream';
 import { Router } from 'express';
 import multer from 'multer';
 import { ZodError } from 'zod';
+import { updateFileSchema } from '@vaultly/shared';
 import { env } from '../config/env.js';
 import { HttpError, sendSuccess } from '../lib/http.js';
 import {
@@ -17,6 +18,7 @@ import {
   listUserFiles,
   restoreUserFile,
   shareFileWithUser,
+  updateUserFile,
   streamSharedFileContent,
   uploadUserFile,
 } from '../services/file-service.js';
@@ -44,6 +46,13 @@ function buildContentDisposition(fileName: string, download: boolean): string {
   return `${disposition}; filename="${safeName}"; filename*=UTF-8''${encodedName}`;
 }
 
+function readRouteParam(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) {
+    return value[0] ?? '';
+  }
+  return value ?? '';
+}
+
 filesRouter.get('/shared-with-me', requireAuth, async (req, res, next) => {
   try {
     const authReq = req as AuthenticatedRequest;
@@ -57,7 +66,7 @@ filesRouter.get('/shared-with-me', requireAuth, async (req, res, next) => {
 filesRouter.get('/:fileId/shared', optionalAuth, async (req, res, next) => {
   try {
     const authReq = req as OptionallyAuthenticatedRequest;
-    const fileId: string = req.params.fileId ?? '';
+    const fileId: string = readRouteParam(req.params.fileId);
     const result = await getSharedFile({
       fileId,
       viewerId: authReq.auth?.sub,
@@ -71,7 +80,7 @@ filesRouter.get('/:fileId/shared', optionalAuth, async (req, res, next) => {
 filesRouter.get('/:fileId/content', optionalAuth, async (req, res, next) => {
   try {
     const authReq = req as OptionallyAuthenticatedRequest;
-    const fileId: string = req.params.fileId ?? '';
+    const fileId: string = readRouteParam(req.params.fileId);
     const download: boolean = req.query.download === '1' || req.query.download === 'true';
     const asset = await streamSharedFileContent({
       fileId,
@@ -162,10 +171,30 @@ filesRouter.post('/upload', requireAuth, (req, res, next) => {
   });
 });
 
+filesRouter.patch('/:fileId', requireAuth, async (req, res, next) => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    const fileId: string = readRouteParam(req.params.fileId);
+    const body = updateFileSchema.parse(req.body);
+    const result = await updateUserFile({
+      userId: authReq.auth.sub,
+      fileId,
+      name: body.name,
+      visibility: body.visibility,
+    });
+    return sendSuccess(res, result);
+  } catch (error) {
+    if (error instanceof ZodError) {
+      return next(mapZodError(error));
+    }
+    return next(error);
+  }
+});
+
 filesRouter.post('/:fileId/share', requireAuth, async (req, res, next) => {
   try {
     const authReq = req as AuthenticatedRequest;
-    const fileId: string = req.params.fileId ?? '';
+    const fileId: string = readRouteParam(req.params.fileId);
     const email: unknown = req.body?.email;
     if (typeof email !== 'string') {
       throw new HttpError(400, 'EMAIL_REQUIRED', 'Enter an email address to share with.');
@@ -184,7 +213,7 @@ filesRouter.post('/:fileId/share', requireAuth, async (req, res, next) => {
 filesRouter.post('/:fileId/restore', requireAuth, async (req, res, next) => {
   try {
     const authReq = req as AuthenticatedRequest;
-    const fileId: string = req.params.fileId ?? '';
+    const fileId: string = readRouteParam(req.params.fileId);
     const result = await restoreUserFile({
       userId: authReq.auth.sub,
       fileId,
@@ -198,7 +227,7 @@ filesRouter.post('/:fileId/restore', requireAuth, async (req, res, next) => {
 filesRouter.delete('/:fileId', requireAuth, async (req, res, next) => {
   try {
     const authReq = req as AuthenticatedRequest;
-    const fileId: string = req.params.fileId ?? '';
+    const fileId: string = readRouteParam(req.params.fileId);
     const permanent: boolean = req.query.permanent === '1' || req.query.permanent === 'true';
     const result = await deleteUserFile({
       userId: authReq.auth.sub,

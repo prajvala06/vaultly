@@ -1,7 +1,8 @@
 'use client';
 
 import { AnimatePresence, motion } from 'framer-motion';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import type { FileVisibility } from '@vaultly/shared';
 import {
   FilesIcon,
   CloseIcon,
@@ -14,7 +15,15 @@ import {
 import { Button } from '@/components/ui/button';
 import { FileTypeIcon, VisibilityBadge, getFileTypeTone } from '@/components/ui/badges';
 import type { VaultFile } from '@/lib/vault-file';
+import { RenameFileDialog } from '@/components/dashboard/rename-file-dialog';
 import { SharePopover } from '@/components/dashboard/share-popover';
+
+const VISIBILITY_OPTIONS: readonly { value: FileVisibility; label: string }[] = [
+  { value: 'PRIVATE', label: 'Only me' },
+  { value: 'LINK', label: 'People with the link' },
+  { value: 'SHARED', label: 'People you add' },
+  { value: 'PUBLIC', label: 'Anyone' },
+];
 
 type FileDetailsPanelProps = {
   file: VaultFile | null;
@@ -29,6 +38,7 @@ type FileDetailsPanelProps = {
   onDownload: () => void;
   onRestore?: () => void;
   onDelete: () => void;
+  onUpdateFile?: (input: { name?: string; visibility?: FileVisibility }) => Promise<void>;
 };
 
 export function FileDetailsPanel({
@@ -44,19 +54,50 @@ export function FileDetailsPanel({
   onDownload,
   onRestore,
   onDelete,
+  onUpdateFile,
 }: FileDetailsPanelProps): React.ReactElement {
+  const [isRenameOpen, setIsRenameOpen] = useState<boolean>(false);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
+  const canEdit: boolean = Boolean(onUpdateFile) && !readOnly && !isTrashView;
+  const isBusy: boolean = isDeleting || isSaving;
+
+  useEffect(() => {
+    if (!isOpen) {
+      setIsRenameOpen(false);
+      setIsSaving(false);
+    }
+  }, [isOpen]);
+
   useEffect(() => {
     if (!isOpen) {
       return;
     }
     function handleKeyDown(event: KeyboardEvent): void {
-      if (event.key === 'Escape' && !isShareOpen && !isDeleting) {
+      if (event.key === 'Escape' && !isShareOpen && !isRenameOpen && !isBusy) {
         onClose();
       }
     }
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, isShareOpen, isDeleting, onClose]);
+  }, [isOpen, isShareOpen, isRenameOpen, isBusy, onClose]);
+
+  async function handleUpdateFile(input: {
+    name?: string;
+    visibility?: FileVisibility;
+  }): Promise<boolean> {
+    if (!onUpdateFile) {
+      return false;
+    }
+    setIsSaving(true);
+    try {
+      await onUpdateFile(input);
+      return true;
+    } catch {
+      return false;
+    } finally {
+      setIsSaving(false);
+    }
+  }
 
   return (
     <AnimatePresence>
@@ -73,7 +114,7 @@ export function FileDetailsPanel({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.18 }}
-            onClick={isDeleting ? undefined : onClose}
+            onClick={isBusy ? undefined : onClose}
           />
           <motion.aside
             role="dialog"
@@ -93,7 +134,7 @@ export function FileDetailsPanel({
                 type="button"
                 aria-label="Close details"
                 onClick={onClose}
-                disabled={isDeleting}
+                disabled={isBusy}
                 className="rounded-full p-1.5 cursor-pointer text-gray-600 transition-colors hover:bg-gray-200 hover:text-gray-800"
               >
                 <CloseIcon className="h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6" />
@@ -122,7 +163,20 @@ export function FileDetailsPanel({
                   <span className="text-sm text-vaultly-ink-soft">{file.owner}</span>
                 </MetaRow>
                 <MetaRow label="Visibility">
-                  <VisibilityBadge visibility={file.visibility} />
+                  {canEdit ? (
+                    <VisibilitySelect
+                      value={file.visibility}
+                      disabled={isBusy}
+                      onChange={(visibility) => {
+                        if (visibility === file.visibility) {
+                          return;
+                        }
+                        void handleUpdateFile({ visibility });
+                      }}
+                    />
+                  ) : (
+                    <VisibilityBadge visibility={file.visibility} />
+                  )}
                 </MetaRow>
                 <MetaRow label="Uploaded">
                   <span className="text-sm text-gray-600">{file.uploadedAt}</span>
@@ -132,13 +186,13 @@ export function FileDetailsPanel({
                 </MetaRow>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <Button variant="secondary" onClick={onDownload} disabled={isDeleting}>
+                <Button variant="secondary" onClick={onDownload} disabled={isBusy}>
                   <DownloadIcon className="h-4 w-4" />
                   Download
                 </Button>
                 {isTrashView ? (
                   <>
-                    <Button variant="secondary" onClick={onRestore} disabled={isDeleting}>
+                    <Button variant="secondary" onClick={onRestore} disabled={isBusy}>
                       <FilesIcon className="h-4 w-4" />
                       Restore
                     </Button>
@@ -146,7 +200,7 @@ export function FileDetailsPanel({
                       variant="danger"
                       className="col-span-2"
                       onClick={onDelete}
-                      disabled={isDeleting}
+                      disabled={isBusy}
                     >
                       <TrashIcon className="h-4 w-4" />
                       {isDeleting ? 'Deleting...' : 'Delete forever'}
@@ -155,15 +209,19 @@ export function FileDetailsPanel({
                 ) : null}
                 {!readOnly && !isTrashView ? (
                   <>
-                    <Button variant="secondary" onClick={onToggleShare} disabled={isDeleting}>
+                    <Button variant="secondary" onClick={onToggleShare} disabled={isBusy}>
                       <ShareIcon className="h-4 w-4" />
                       Share
                     </Button>
-                    <Button variant="secondary" disabled={isDeleting}>
+                    <Button
+                      variant="secondary"
+                      disabled={isBusy || !canEdit}
+                      onClick={() => setIsRenameOpen(true)}
+                    >
                       <RenameIcon className="h-4 w-4" />
                       Rename
                     </Button>
-                    <Button variant="danger" onClick={onDelete} disabled={isDeleting}>
+                    <Button variant="danger" onClick={onDelete} disabled={isBusy}>
                       <TrashIcon className="h-4 w-4" />
                       {isDeleting ? 'Moving...' : 'Move to trash'}
                     </Button>
@@ -189,9 +247,69 @@ export function FileDetailsPanel({
             visibility={file.visibility}
             onClose={onCloseShare}
           />
+          <RenameFileDialog
+            isOpen={isRenameOpen}
+            currentName={file.name}
+            isSubmitting={isSaving}
+            onClose={() => {
+              if (!isSaving) {
+                setIsRenameOpen(false);
+              }
+            }}
+            onSubmit={async (name) => {
+              const didSave: boolean = await handleUpdateFile({ name });
+              if (didSave) {
+                setIsRenameOpen(false);
+              }
+            }}
+          />
         </div>
       ) : null}
     </AnimatePresence>
+  );
+}
+
+type VisibilitySelectProps = {
+  value: FileVisibility;
+  disabled: boolean;
+  onChange: (visibility: FileVisibility) => void;
+};
+
+function VisibilitySelect({
+  value,
+  disabled,
+  onChange,
+}: VisibilitySelectProps): React.ReactElement {
+  return (
+    <label className="min-w-0">
+      <span className="sr-only">File visibility</span>
+      <select
+        value={value}
+        disabled={disabled}
+        onChange={(event) => {
+          const nextValue: string = event.target.value;
+          if (
+            nextValue === 'PRIVATE' ||
+            nextValue === 'LINK' ||
+            nextValue === 'SHARED' ||
+            nextValue === 'PUBLIC'
+          ) {
+            onChange(nextValue);
+          }
+        }}
+        className="max-w-[180px] cursor-pointer appearance-none rounded-lg border border-gray-200 bg-white bg-size-[12px] bg-position-[right_8px_center] bg-no-repeat py-1.5 pr-7 pl-2 text-sm leading-snug text-gray-700 outline-none transition-colors hover:border-gray-300 focus:border-gray-400 disabled:cursor-not-allowed disabled:opacity-60"
+        style={{
+          backgroundImage:
+            "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3E%3C/svg%3E\")",
+        }}
+      >
+        {VISIBILITY_OPTIONS.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 

@@ -1,5 +1,13 @@
 import type { File as DbFile } from '@prisma/client';
-import type { ListFilesResponse, ListSharedWithMeResponse, SharedFileDto, UploadFileResponse, VaultFileDto } from '@vaultly/shared';
+import type {
+  FileVisibility,
+  ListFilesResponse,
+  ListSharedWithMeResponse,
+  SharedFileDto,
+  UpdateFileResponse,
+  UploadFileResponse,
+  VaultFileDto,
+} from '@vaultly/shared';
 import { env } from '../config/env.js';
 import { HttpError } from '../lib/http.js';
 import { prisma } from '../lib/prisma.js';
@@ -289,6 +297,76 @@ export async function deleteUserFile(input: {
   });
   const storage = await getStorageSummaryForUser(input.userId);
   return { ok: true, storage };
+}
+
+function getFileExtension(fileName: string): string {
+  const lastDot: number = fileName.lastIndexOf('.');
+  if (lastDot <= 0 || lastDot === fileName.length - 1) {
+    return '';
+  }
+  return fileName.slice(lastDot);
+}
+
+function resolveRenamedFileName(currentName: string, nextName: string): string {
+  const trimmedName: string = nextName.trim();
+  if (trimmedName === '.' || trimmedName === '..') {
+    throw new HttpError(400, 'INVALID_FILE_NAME', 'Enter a valid file name.');
+  }
+  const currentExt: string = getFileExtension(currentName);
+  const nextExt: string = getFileExtension(trimmedName);
+  if (currentExt && !nextExt) {
+    return `${trimmedName}${currentExt}`;
+  }
+  return trimmedName;
+}
+
+export async function updateUserFile(input: {
+  userId: string;
+  fileId: string;
+  name?: string;
+  visibility?: FileVisibility;
+}): Promise<UpdateFileResponse> {
+  const existing = await prisma.file.findFirst({
+    where: {
+      id: input.fileId,
+      userId: input.userId,
+    },
+    include: {
+      user: {
+        select: { name: true },
+      },
+    },
+  });
+  if (!existing) {
+    throw new HttpError(404, 'FILE_NOT_FOUND', 'File not found.');
+  }
+  if (existing.deletedAt) {
+    throw new HttpError(400, 'FILE_IN_TRASH', 'Restore the file before changing it.');
+  }
+  const nextName: string | undefined =
+    input.name !== undefined ? resolveRenamedFileName(existing.originalName, input.name) : undefined;
+  const nextVisibility: FileVisibility | undefined = input.visibility;
+  const hasNameChange: boolean = nextName !== undefined && nextName !== existing.originalName;
+  const hasVisibilityChange: boolean =
+    nextVisibility !== undefined && nextVisibility !== existing.visibility;
+  if (!hasNameChange && !hasVisibilityChange) {
+    const storage = await getStorageSummaryForUser(input.userId);
+    return { file: mapFileToDto(existing), storage };
+  }
+  const updated = await prisma.file.update({
+    where: { id: existing.id },
+    data: {
+      ...(hasNameChange ? { originalName: nextName } : {}),
+      ...(hasVisibilityChange ? { visibility: nextVisibility } : {}),
+    },
+    include: {
+      user: {
+        select: { name: true },
+      },
+    },
+  });
+  const storage = await getStorageSummaryForUser(input.userId);
+  return { file: mapFileToDto(updated), storage };
 }
 
 export async function restoreUserFile(input: {

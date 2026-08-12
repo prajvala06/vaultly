@@ -61,9 +61,14 @@ function filterByFolder(files: readonly VaultFile[], folderId: string): readonly
 }
 
 export function MyFilesDashboard(): React.ReactElement {
-  const { files, storage, isLoading, setFiles, setStorage } = useVaultFiles();
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
+  const {
+    files,
+    isLoading,
+    searchQuery,
+    selectedFileId,
+    setSearchQuery,
+    setSelectedFileId,
+  } = useVaultFiles();
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [fileFilter, setFileFilter] = useState<FileFilter>('all');
   const [fileSort, setFileSort] = useState<FileSort>('modified-desc');
@@ -73,14 +78,6 @@ export function MyFilesDashboard(): React.ReactElement {
     <VaultChrome
       title={viewCopy.title}
       subtitle={viewCopy.subtitle}
-      storage={storage}
-      files={files}
-      setFiles={setFiles}
-      setStorage={setStorage}
-      searchQuery={searchQuery}
-      onSearchChange={setSearchQuery}
-      selectedFileId={selectedFileId}
-      onSelectFile={setSelectedFileId}
       pageActions={() => <MyFilesUploadAction />}
     >
       <MyFilesDashboardContent
@@ -89,7 +86,7 @@ export function MyFilesDashboard(): React.ReactElement {
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         selectedFileId={selectedFileId}
-        onSelectFile={setSelectedFileId}
+        onSelectFile={(fileId) => setSelectedFileId(fileId)}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         fileFilter={fileFilter}
@@ -169,6 +166,11 @@ function MyFilesDashboardContent({
   }, [resolvedFolder.filterId]);
 
   function handleFolderSelect(folderId: string): void {
+    if(folderId === activeFolderId) {
+      setActiveFolderId('all');
+       router.replace('/my-files');
+       return;
+    }
     setActiveFolderId(folderId);
     const queryValue: string = buildFolderQueryValue(folderId, folders);
     if (!queryValue) {

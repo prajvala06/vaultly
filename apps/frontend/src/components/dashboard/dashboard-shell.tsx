@@ -30,9 +30,14 @@ type DashboardShellProps = {
 export function DashboardShell({ view }: DashboardShellProps): React.ReactElement {
   const filesScope =
     view === 'shared-with-me' ? 'shared-with-me' : view === 'trash' ? 'trash' : 'owned';
-  const { files, storage, isLoading, setFiles, setStorage } = useVaultFiles(filesScope);
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
+  const {
+    files,
+    isLoading,
+    searchQuery,
+    selectedFileId,
+    setSearchQuery,
+    setSelectedFileId,
+  } = useVaultFiles(filesScope);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [fileFilter, setFileFilter] = useState<FileFilter>('all');
   const [fileSort, setFileSort] = useState<FileSort>('modified-desc');
@@ -51,14 +56,6 @@ export function DashboardShell({ view }: DashboardShellProps): React.ReactElemen
     <VaultChrome
       title={viewCopy.title}
       subtitle={viewCopy.subtitle}
-      storage={storage}
-      files={files}
-      setFiles={setFiles}
-      setStorage={setStorage}
-      searchQuery={searchQuery}
-      onSearchChange={setSearchQuery}
-      selectedFileId={selectedFileId}
-      onSelectFile={setSelectedFileId}
       readOnlyFiles={view === 'shared-with-me'}
       isTrashView={view === 'trash'}
     >
@@ -78,7 +75,7 @@ export function DashboardShell({ view }: DashboardShellProps): React.ReactElemen
         <ViewFileTable
           files={filteredFiles}
           selectedFileId={selectedFileId}
-          onSelectFile={setSelectedFileId}
+          onSelectFile={(fileId) => setSelectedFileId(fileId)}
           emptyTitle={viewCopy.emptyTitle}
           emptyMessage={viewCopy.emptyMessage}
           showUploadAction={canUploadInEmptyState}
@@ -87,7 +84,7 @@ export function DashboardShell({ view }: DashboardShellProps): React.ReactElemen
         <FileGrid
           files={filteredFiles}
           selectedFileId={selectedFileId}
-          onSelectFile={setSelectedFileId}
+          onSelectFile={(fileId) => setSelectedFileId(fileId)}
           emptyTitle={viewCopy.emptyTitle}
           emptyMessage={viewCopy.emptyMessage}
         />

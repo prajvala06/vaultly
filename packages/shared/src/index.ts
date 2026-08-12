@@ -41,13 +41,17 @@ export type {
 
 export type { UserLookupDto, UserLookupResponse } from './users.js';
 
-export type {
-  FileType,
-  FileVisibility,
-  ListFilesResponse,
-  ListSharedWithMeResponse,
-  SharedFileDto,
-  StorageSummaryDto,
-  UploadFileResponse,
-  VaultFileDto,
+export {
+  FILE_VISIBILITY_VALUES,
+  updateFileSchema,
+  type FileType,
+  type FileVisibility,
+  type ListFilesResponse,
+  type ListSharedWithMeResponse,
+  type SharedFileDto,
+  type StorageSummaryDto,
+  type UpdateFileInput,
+  type UpdateFileResponse,
+  type UploadFileResponse,
+  type VaultFileDto,
 } from './files.js';

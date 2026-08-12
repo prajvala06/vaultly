@@ -2,9 +2,11 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useEffect } from 'react';
 import type { StorageSummaryDto } from '@vaultly/shared';
 import {
   ClockIcon,
+  CloseIcon,
   FilesIcon,
   HomeIcon,
   PlusIcon,
@@ -26,6 +28,15 @@ type NavItem = {
 type SidebarProps = {
   storage?: StorageSummaryDto;
   onNewClick: () => void;
+  isMobileOpen?: boolean;
+  onMobileClose?: () => void;
+};
+
+type SidebarBodyProps = {
+  storage: StorageSummaryDto;
+  onNewClick: () => void;
+  onNavigate?: () => void;
+  onClose?: () => void;
 };
 
 const PRIMARY_NAV: readonly NavItem[] = [
@@ -37,22 +48,54 @@ const PRIMARY_NAV: readonly NavItem[] = [
   { label: 'Trash', icon: <TrashIcon className="h-5 w-5 md:h-6 md:w-6" />, path: '/trash' },
 ];
 
-export function Sidebar({ storage = EMPTY_STORAGE_SUMMARY, onNewClick }: SidebarProps): React.ReactElement {
+function SidebarBody({
+  storage,
+  onNewClick,
+  onNavigate,
+  onClose,
+}: SidebarBodyProps): React.ReactElement {
   const pathname = usePathname();
   const { pushToast } = useToast();
 
   return (
-    <aside className="hidden h-full w-64 shrink-0 flex-col border-r border-slate-800 bg-[#1b2430] text-white md:flex">
-      <div className="flex items-center gap-3 px-5 py-5">
-        <Image src="/images/logo.png" alt="Logo" width={32} height={32} className="w-10 h-10 md:w-12 md:h-12 lg:w-14 lg:h-14" />
-        <span className="text-lg md:text-xl lg:text-2xl font-semibold uppercase tracking-tight">Vaultly</span>
+    <>
+      <div className="flex items-center justify-between gap-2 px-5 py-5">
+        <div className="flex items-center gap-3">
+          <Image
+            src="/images/logo.png"
+            alt="Logo"
+            width={32}
+            height={32}
+            className="h-10 w-10 md:h-12 md:w-12 lg:h-14 lg:w-14"
+          />
+          <span className="text-lg font-semibold tracking-tight uppercase md:text-xl lg:text-2xl">
+            Vaultly
+          </span>
+        </div>
+        {onClose ? (
+          <button
+            type="button"
+            aria-label="Close menu"
+            onClick={onClose}
+            className="rounded-lg p-1.5 text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+          >
+            <CloseIcon className="h-5 w-5" />
+          </button>
+        ) : null}
       </div>
-      <div className="h-0.5 w-full bg-gray-600 mb-4"></div>
-      <Button variant="secondary" onClick={onNewClick} className="rounded-full mx-4 px-5">
+      <div className="mb-4 h-0.5 w-full bg-gray-600" />
+      <Button
+        variant="secondary"
+        onClick={() => {
+          onNavigate?.();
+          onNewClick();
+        }}
+        className="mx-4 rounded-full px-5"
+      >
         <PlusIcon className="h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6" />
         New
       </Button>
-      <nav className="flex flex-1 flex-col overflow-y-auto px-3 pb-4 mt-6">
+      <nav className="mt-6 flex flex-1 flex-col overflow-y-auto px-3 pb-4">
         <ul className="space-y-1.5">
           {PRIMARY_NAV.map((item) => {
             const isActive: boolean = item.path === pathname;
@@ -60,6 +103,7 @@ export function Sidebar({ storage = EMPTY_STORAGE_SUMMARY, onNewClick }: Sidebar
               <li key={item.label}>
                 <Link
                   href={item.path}
+                  onClick={onNavigate}
                   className={
                     isActive
                       ? 'flex w-full items-center gap-3 rounded-xl bg-white/10 px-3.5 py-2.5 text-sm font-semibold text-white'
@@ -104,6 +148,57 @@ export function Sidebar({ storage = EMPTY_STORAGE_SUMMARY, onNewClick }: Sidebar
           </button>
         </div>
       </div>
-    </aside>
+    </>
+  );
+}
+
+export function Sidebar({
+  storage = EMPTY_STORAGE_SUMMARY,
+  onNewClick,
+  isMobileOpen = false,
+  onMobileClose,
+}: SidebarProps): React.ReactElement {
+  useEffect(() => {
+    if (!isMobileOpen) {
+      return;
+    }
+    const previousOverflow: string = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    function handleKeyDown(event: KeyboardEvent): void {
+      if (event.key === 'Escape') {
+        onMobileClose?.();
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isMobileOpen, onMobileClose]);
+
+  return (
+    <>
+      <aside className="hidden h-full w-64 shrink-0 flex-col border-r border-slate-800 bg-[#1b2430] text-white md:flex">
+        <SidebarBody storage={storage} onNewClick={onNewClick} />
+      </aside>
+      {isMobileOpen ? (
+        <div className="fixed inset-0 z-50 md:hidden" role="dialog" aria-modal="true" aria-label="Navigation">
+          <button
+            type="button"
+            aria-label="Close menu"
+            className="absolute inset-0 bg-black/40"
+            onClick={onMobileClose}
+          />
+          <aside className="relative z-10 flex h-full w-64 flex-col border-r border-slate-800 bg-[#1b2430] text-white shadow-[0_16px_40px_rgba(0,0,0,0.28)]">
+            <SidebarBody
+              storage={storage}
+              onNewClick={onNewClick}
+              onNavigate={onMobileClose}
+              onClose={onMobileClose}
+            />
+          </aside>
+        </div>
+      ) : null}
+    </>
   );
 }

@@ -15,12 +15,14 @@ import {
   type AuthSessionUser,
 } from '@/lib/auth-session';
 import type { VaultFile } from '@/lib/vault-file';
+import { useToast } from '@/components/ui/toaster';
 
 type DashboardHeaderProps = {
   files: VaultFile[];
   searchQuery?: string;
   onSearchChange?: (value: string) => void;
   onSelectFile: (fileId: string) => void;
+  onOpenMenu?: () => void;
 };
 
 export function DashboardHeader({
@@ -28,12 +30,14 @@ export function DashboardHeader({
   searchQuery = '',
   onSearchChange,
   onSelectFile,
+  onOpenMenu,
 }: DashboardHeaderProps): React.ReactElement {
   const router = useRouter();
   const profileRef = useRef<HTMLDivElement | null>(null);
   const [user, setUser] = useState<AuthSessionUser | null>(null);
   const [isProfileOpen, setIsProfileOpen] = useState<boolean>(false);
   const initials: string = getUserInitials(user);
+  const { pushToast } = useToast();
 
   useEffect(() => {
     setUser(readAuthSession());
@@ -75,19 +79,24 @@ export function DashboardHeader({
 
   return (
     <header className="shrink-0 ">
-      <div className="flex items-center justify-between gap-4 border-b border-gray-200 bg-white px-6 py-3 xl:px-8">
+      <div className="flex items-center justify-between gap-3 border-b border-gray-200 bg-white px-4 py-3 sm:gap-4 sm:px-6 xl:px-8">
         <DashboardSearch
           files={files}
           searchQuery={searchQuery}
           onSearchChange={(value) => onSearchChange?.(value)}
           onSelectFile={onSelectFile}
+          onOpenMenu={onOpenMenu}
         />
         <div className="flex shrink-0 items-center gap-2.5">
           <button
             type="button"
             aria-label="Notifications"
             onClick={() => {
-               // TODO: Add Notifications side panel
+                pushToast({
+                    title: 'Notifications',
+                    message: 'You have no notifications',
+                    tone: 'info',
+                });
             }}
             className="relative flex cursor-pointer h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-800"
           >

@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   description: 'Open a shared Vaultly file in the app.',
 };
 
-export default async function SharePage({ params }: SharePageProps): React.ReactElement {
+export default async function SharePage({ params }: SharePageProps): Promise<React.ReactElement> {
   const { fileId } = await params;
   return <ShareFileView fileId={fileId} />;
 }

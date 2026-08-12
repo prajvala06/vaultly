@@ -12,6 +12,7 @@ import {
   VaultLogoIcon,
 } from '@/components/icons';
 import { AuthDialog, type AuthDialogMode } from '@/components/auth/auth-dialog';
+import { getUserInitials, readAuthSession, type AuthSessionUser } from '@/lib/auth-session';
 import Image from 'next/image';
 
 const NAV_LINKS: readonly { label: string; href: string }[] = [
@@ -75,8 +76,15 @@ export function LandingPage(): React.ReactElement {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [authMode, setAuthMode] = useState<AuthDialogMode | null>(null);
+  const [user, setUser] = useState<AuthSessionUser | null>(null);
+  const isSignedIn: boolean = user !== null;
 
   useEffect(() => {
+    const session: AuthSessionUser | null = readAuthSession();
+    setUser(session);
+    if (session) {
+      return;
+    }
     const authParam: string | null = searchParams.get('auth');
     if (authParam === 'login' || authParam === 'register') {
       setAuthMode(authParam);
@@ -124,20 +132,40 @@ export function LandingPage(): React.ReactElement {
             ))}
           </nav>
           <div className="flex items-center gap-2 sm:gap-3">
-            <button
-              type="button"
-              onClick={() => setAuthMode('login')}
-              className="rounded-[6px] border border-vaultly-ink bg-white px-5 py-3 text-lg font-semibold text-vaultly-ink transition-colors hover:bg-vaultly-surface-muted"
-            >
-              Log in
-            </button>
-            <button
-              type="button"
-              onClick={() => setAuthMode('register')}
-              className="rounded-[6px] bg-vaultly-ink px-5 py-3 text-lg font-semibold text-white transition-colors hover:bg-vaultly-ink/80"
-            >
-              Get Started
-            </button>
+            {isSignedIn ? (
+              <>
+                <Link
+                  href="/home"
+                  className="px-5 py-3 text-lg font-semibold text-vaultly-ink transition-colors hover:bg-vaultly-surface-muted"
+                >
+                  My Vault
+                </Link>
+                <Link
+                  href="/home"
+                  aria-label="Open vault"
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-orange-400 to-pink-500 text-xs font-bold text-white"
+                >
+                  {getUserInitials(user)}
+                </Link>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setAuthMode('login')}
+                  className="rounded-[6px] border border-vaultly-ink bg-white px-5 py-3 text-lg font-semibold text-vaultly-ink transition-colors hover:bg-vaultly-surface-muted"
+                >
+                  Log in
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAuthMode('register')}
+                  className="rounded-[6px] bg-vaultly-ink px-5 py-3 text-lg font-semibold text-white transition-colors hover:bg-vaultly-ink/80"
+                >
+                  Get Started
+                </button>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -199,25 +227,36 @@ export function LandingPage(): React.ReactElement {
           transition={{ duration: 0.4, ease: 'easeOut', delay: 0.35 }}
           className="mt-8 flex flex-wrap items-center justify-center gap-3"
         >
-          <button
-            type="button"
-            onClick={() => setAuthMode('register')}
-            className="rounded-[6px] bg-vaultly-ink px-5 py-3 text-lg font-semibold text-white transition-colors hover:bg-vaultly-ink/80"
-          >
-            Get Started
-          </button>
-          <button
-            type="button"
-            onClick={() => setAuthMode('login')}
-            className="rounded-[6px] border border-vaultly-ink bg-white px-5 py-3 text-lg font-semibold text-vaultly-ink transition-colors hover:bg-vaultly-surface-muted"
-          >
-            Log in
-          </button>
+          {isSignedIn ? (
+            <Link
+              href="/home"
+              className="rounded-[6px] bg-vaultly-ink px-5 py-3 text-lg font-semibold text-white transition-colors hover:bg-vaultly-ink/80"
+            >
+              Open vault
+            </Link>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => setAuthMode('register')}
+                className="rounded-[6px] bg-vaultly-ink px-5 py-3 text-lg font-semibold text-white transition-colors hover:bg-vaultly-ink/80"
+              >
+                Get Started
+              </button>
+              <button
+                type="button"
+                onClick={() => setAuthMode('login')}
+                className="rounded-[6px] border border-vaultly-ink bg-white px-5 py-3 text-lg font-semibold text-vaultly-ink transition-colors hover:bg-vaultly-surface-muted"
+              >
+                Log in
+              </button>
+            </>
+          )}
         </motion.div>
       </section>
 
       <AuthDialog
-        mode={authMode}
+        mode={isSignedIn ? null : authMode}
         onClose={handleCloseAuth}
         onSwitchMode={setAuthMode}
       />

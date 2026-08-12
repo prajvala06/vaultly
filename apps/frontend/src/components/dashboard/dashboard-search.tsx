@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { UserLookupDto, UserLookupResponse, VaultFolderDto } from '@vaultly/shared';
-import { FilesIcon, FolderIcon, SearchIcon, UsersIcon } from '@/components/icons';
+import { FilesIcon, FolderIcon, MenuIcon, SearchIcon, UsersIcon } from '@/components/icons';
 import { FileTypeIcon } from '@/components/ui/badges';
 import { ApiClientError, apiRequest } from '@/lib/api-client';
 import { isCompleteEmail } from '@/lib/search';
@@ -18,6 +18,7 @@ type DashboardSearchProps = {
   searchQuery: string;
   onSearchChange: (value: string) => void;
   onSelectFile: (fileId: string) => void;
+  onOpenMenu?: () => void;
 };
 
 type SearchSectionProps = {
@@ -57,6 +58,7 @@ export function DashboardSearch({
   searchQuery,
   onSearchChange,
   onSelectFile,
+  onOpenMenu,
 }: DashboardSearchProps): React.ReactElement {
   const router = useRouter();
   const searchRef = useRef<HTMLDivElement | null>(null);
@@ -179,21 +181,33 @@ export function DashboardSearch({
 
   return (
     <div ref={searchRef} className="relative min-w-0 flex-1 max-w-xl">
-      <label className="relative block">
-        <span className="sr-only">Search</span>
-        <SearchIcon className="pointer-events-none absolute top-1/2 left-3.5 h-4.5 w-4.5 -translate-y-1/2 text-gray-400" />
-        <input
-          type="search"
-          value={searchQuery}
-          onChange={(event) => {
-            onSearchChange(event.target.value);
-            setIsOpen(true);
-          }}
-          onFocus={() => setIsOpen(true)}
-          placeholder="Search files, folders, or people..."
-          className="w-full rounded-full border border-gray-200 bg-white py-2.5 pr-4 pl-10 text-sm text-vaultly-ink outline-none transition-colors placeholder:text-gray-400 focus:border-gray-300 focus:ring-2 focus:ring-gray-100"
-        />
-      </label>
+      <div className="flex items-center gap-2">
+        {onOpenMenu ? (
+          <button
+            type="button"
+            aria-label="Open menu"
+            onClick={onOpenMenu}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-800 md:hidden"
+          >
+            <MenuIcon className="h-5 w-5" />
+          </button>
+        ) : null}
+        <label className="relative block min-w-0 flex-1">
+          <span className="sr-only">Search</span>
+          <SearchIcon className="pointer-events-none absolute top-1/2 left-3.5 h-4.5 w-4.5 -translate-y-1/2 text-gray-400" />
+          <input
+            type="search"
+            value={searchQuery}
+            onChange={(event) => {
+              onSearchChange(event.target.value);
+              setIsOpen(true);
+            }}
+            onFocus={() => setIsOpen(true)}
+            placeholder="Search files, folders, or people..."
+            className="w-full rounded-full border border-gray-200 bg-white py-2.5 pr-4 pl-10 text-sm text-vaultly-ink outline-none transition-colors placeholder:text-gray-400 focus:border-gray-300 focus:ring-2 focus:ring-gray-100"
+          />
+        </label>
+      </div>
       {showResults ? (
         <div className="absolute top-[calc(100%+8px)] right-0 left-0 z-40 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-[0_16px_40px_rgba(0,0,0,0.12)]">
           {matchedFiles.length > 0 ? (

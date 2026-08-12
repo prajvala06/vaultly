@@ -70,3 +70,72 @@ export function FilesShimmerLoader({
     </div>
   );
 }
+
+export function HomeShimmerLoader(): React.ReactElement {
+  return (
+    <div className="flex flex-col gap-6" aria-busy="true" aria-label="Loading home">
+      <section className="grid gap-4 sm:grid-cols-3">
+        {Array.from({ length: 3 }, (_, index) => (
+          <article
+            key={`home-card-shimmer-${index}`}
+            className="h-42 rounded-3xl bg-white px-5 py-4 shadow-vaultly"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <ShimmerBlock className="h-10 w-10 rounded-full" />
+                <ShimmerBlock className="h-5 w-24 rounded-lg" />
+              </div>
+              <ShimmerBlock className="h-3 w-10 rounded-md" />
+            </div>
+            <ShimmerBlock className="mt-6 ml-4 h-4 w-20 rounded-lg" />
+            <ShimmerBlock className="mt-4 ml-4 h-1.5 w-[calc(100%-1rem)] rounded-full" />
+            <ShimmerBlock className="mt-3 ml-4 h-3 w-24 rounded-md" />
+          </article>
+        ))}
+      </section>
+      <div className="my-4">
+        <ShimmerBlock className="h-7 w-40 rounded-lg" />
+        <div className="mt-4 rounded-3xl bg-gray-100 p-5">
+          <div className="flex flex-col items-center gap-8 lg:flex-row lg:items-center lg:justify-evenly lg:gap-12">
+            <div className="flex flex-col items-center">
+              <ShimmerBlock className="h-48 w-48 rounded-full md:h-52 md:w-52" />
+              <ShimmerBlock className="mt-4 h-4 w-40 rounded-lg" />
+            </div>
+            <ul className="grid w-full max-w-md grid-cols-1 gap-3 lg:grid-cols-2">
+              {Array.from({ length: 4 }, (_, index) => (
+                <li
+                  key={`home-legend-shimmer-${index}`}
+                  className="rounded-2xl border border-white/70 bg-white/80 px-4 py-3"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5">
+                      <ShimmerBlock className="h-2.5 w-2.5 rounded-full" />
+                      <div className="space-y-2">
+                        <ShimmerBlock className="h-3.5 w-20 rounded-md" />
+                        <ShimmerBlock className="h-3 w-14 rounded-md" />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <ShimmerBlock className="ml-auto h-3.5 w-12 rounded-md" />
+                      <ShimmerBlock className="ml-auto h-3 w-8 rounded-md" />
+                    </div>
+                  </div>
+                  <ShimmerBlock className="mt-2.5 h-1.5 w-full rounded-full" />
+                </li>
+              ))}
+              <li className="rounded-2xl border border-dashed border-gray-200 bg-white/50 px-4 py-3 lg:col-span-2">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <ShimmerBlock className="h-2.5 w-2.5 rounded-full" />
+                    <ShimmerBlock className="h-3.5 w-24 rounded-md" />
+                  </div>
+                  <ShimmerBlock className="h-3.5 w-16 rounded-md" />
+                </div>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

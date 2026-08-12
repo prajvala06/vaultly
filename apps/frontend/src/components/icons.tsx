@@ -185,6 +185,14 @@ export function CloseIcon(props: IconProps): React.ReactElement {
   );
 }
 
+export function MenuIcon(props: IconProps): React.ReactElement {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" {...baseProps} {...props}>
+      <path d="M4 7h16M4 12h16M4 17h16" />
+    </svg>
+  );
+}
+
 export function DownloadIcon(props: IconProps): React.ReactElement {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" {...baseProps} {...props}>

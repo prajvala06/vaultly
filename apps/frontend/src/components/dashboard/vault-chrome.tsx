@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useMemo, useState } from 'react';
-import type { StorageSummaryDto } from '@vaultly/shared';
+import type { FileVisibility, StorageSummaryDto, UpdateFileResponse } from '@vaultly/shared';
 import { CreateFolderDialog } from '@/components/dashboard/create-folder-dialog';
 import { DashboardHeader, DashboardPageIntro } from '@/components/dashboard/dashboard-header';
 import { FileDetailsPanel } from '@/components/dashboard/file-details-panel';
@@ -12,6 +12,7 @@ import { VaultFoldersProvider, useVaultFolders } from '@/hooks/use-vault-folders
 import { useToast } from '@/components/ui/toaster';
 import { ApiClientError, apiRequest, downloadVaultFile, isUnauthenticatedError } from '@/lib/api-client';
 import { forceClientLogout } from '@/lib/auth-session';
+import { useVaultStore } from '@/stores/vault-store';
 import type { VaultFile } from '@/lib/vault-file';
 
 type VaultUploadContextValue = {
@@ -30,17 +31,9 @@ export function useVaultUpload(): VaultUploadContextValue {
 }
 
 type VaultChromeProps = {
-  storage: StorageSummaryDto;
-  files: VaultFile[];
-  setFiles: React.Dispatch<React.SetStateAction<VaultFile[]>>;
-  setStorage: React.Dispatch<React.SetStateAction<StorageSummaryDto>>;
   isHome?: boolean;
   title?: string;
   subtitle?: string;
-  searchQuery: string;
-  onSearchChange: (value: string) => void;
-  selectedFileId: string | null;
-  onSelectFile: (fileId: string | null) => void;
   readOnlyFiles?: boolean;
   isTrashView?: boolean;
   pageActions?: () => React.ReactNode;
@@ -48,17 +41,9 @@ type VaultChromeProps = {
 };
 
 export function VaultChrome({
-  storage,
-  files,
-  setFiles,
-  setStorage,
   isHome = false,
   title,
   subtitle,
-  searchQuery,
-  onSearchChange,
-  selectedFileId,
-  onSelectFile,
   readOnlyFiles = false,
   isTrashView = false,
   pageActions,
@@ -67,17 +52,9 @@ export function VaultChrome({
   return (
     <VaultFoldersProvider>
       <VaultChromeContent
-        storage={storage}
-        files={files}
-        setFiles={setFiles}
-        setStorage={setStorage}
         isHome={isHome}
         title={title}
         subtitle={subtitle}
-        searchQuery={searchQuery}
-        onSearchChange={onSearchChange}
-        selectedFileId={selectedFileId}
-        onSelectFile={onSelectFile}
         readOnlyFiles={readOnlyFiles}
         isTrashView={isTrashView}
         pageActions={pageActions}
@@ -89,17 +66,9 @@ export function VaultChrome({
 }
 
 function VaultChromeContent({
-  storage,
-  files,
-  setFiles,
-  setStorage,
   isHome = false,
   title,
   subtitle,
-  searchQuery,
-  onSearchChange,
-  selectedFileId,
-  onSelectFile,
   readOnlyFiles = false,
   isTrashView = false,
   pageActions,
@@ -107,6 +76,15 @@ function VaultChromeContent({
 }: VaultChromeProps): React.ReactElement {
   const { pushToast } = useToast();
   const { addFolder, reloadFolders } = useVaultFolders();
+  const files = useVaultStore((state) => state.files);
+  const storage = useVaultStore((state) => state.storage);
+  const searchQuery = useVaultStore((state) => state.searchQuery);
+  const selectedFileId = useVaultStore((state) => state.selectedFileId);
+  const setFiles = useVaultStore((state) => state.setFiles);
+  const setStorage = useVaultStore((state) => state.setStorage);
+  const setSearchQuery = useVaultStore((state) => state.setSearchQuery);
+  const setSelectedFileId = useVaultStore((state) => state.setSelectedFileId);
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState<boolean>(false);
   const [isNewMenuOpen, setIsNewMenuOpen] = useState<boolean>(false);
   const [isCreateFolderOpen, setIsCreateFolderOpen] = useState<boolean>(false);
   const [isUploadOpen, setIsUploadOpen] = useState<boolean>(false);
@@ -136,7 +114,7 @@ function VaultChromeContent({
       );
       setFiles((current) => current.filter((file) => file.id !== fileId));
       setStorage(result.storage);
-      onSelectFile(null);
+      setSelectedFileId(null);
       setIsShareOpen(false);
       void reloadFolders();
       pushToast({
@@ -171,6 +149,57 @@ function VaultChromeContent({
     }
   }
 
+  async function handleUpdateFile(input: {
+    name?: string;
+    visibility?: FileVisibility;
+  }): Promise<void> {
+    if (!selectedFile) {
+      return;
+    }
+    try {
+      const result = await apiRequest<UpdateFileResponse>(`/api/files/${selectedFile.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(input),
+      });
+      setFiles((current) =>
+        current.map((file) => (file.id === result.file.id ? result.file : file)),
+      );
+      setStorage(result.storage);
+      if (input.name) {
+        pushToast({
+          tone: 'success',
+          title: 'File renamed',
+          message: `Now saved as "${result.file.name}".`,
+        });
+        return;
+      }
+      pushToast({
+        tone: 'success',
+        title: 'Visibility updated',
+        message: 'Anyone with access will see the new setting.',
+      });
+    } catch (error) {
+      if (isUnauthenticatedError(error)) {
+        pushToast({
+          tone: 'error',
+          title: 'Session expired',
+          message: 'Please sign in again to continue.',
+        });
+        forceClientLogout('/');
+        throw error;
+      }
+      if (error instanceof ApiClientError) {
+        pushToast({ tone: 'error', message: error.message });
+        throw error;
+      }
+      pushToast({
+        tone: 'error',
+        message: 'Could not update the file. Please try again.',
+      });
+      throw error;
+    }
+  }
+
   async function handleRestoreFile(fileId: string): Promise<void> {
     setPendingAction('restore');
     try {
@@ -180,7 +209,7 @@ function VaultChromeContent({
       );
       setFiles((current) => current.filter((file) => file.id !== fileId));
       setStorage(result.storage);
-      onSelectFile(null);
+      setSelectedFileId(null);
       void reloadFolders();
       pushToast({
         tone: 'success',
@@ -221,14 +250,20 @@ function VaultChromeContent({
   return (
     <VaultUploadContext.Provider value={uploadContextValue}>
       <div className="flex h-screen overflow-hidden bg-gray-50 text-vaultly-ink">
-        <Sidebar storage={storage} onNewClick={() => setIsNewMenuOpen(true)} />
+        <Sidebar
+          storage={storage}
+          isMobileOpen={isMobileNavOpen}
+          onMobileClose={() => setIsMobileNavOpen(false)}
+          onNewClick={() => setIsNewMenuOpen(true)}
+        />
         <div className="relative flex min-w-0 flex-1">
           <main className="flex min-w-0 flex-1 flex-col ">
             <DashboardHeader
               files={files}
               searchQuery={searchQuery}
-              onSearchChange={onSearchChange}
-              onSelectFile={onSelectFile}
+              onSearchChange={setSearchQuery}
+              onSelectFile={(fileId) => setSelectedFileId(fileId)}
+              onOpenMenu={() => setIsMobileNavOpen(true)}
             />
             <div className="flex-1 overflow-y-auto px-6 py-6 xl:px-8">
               <div className="mx-auto flex max-w-6xl flex-col gap-6">
@@ -278,7 +313,7 @@ function VaultChromeContent({
             if (isBusy) {
               return;
             }
-            onSelectFile(null);
+            setSelectedFileId(null);
             setIsShareOpen(false);
           }}
           onToggleShare={() => setIsShareOpen((current) => !current)}
@@ -306,6 +341,7 @@ function VaultChromeContent({
             }
             void handleDeleteFile(selectedFile.id);
           }}
+          onUpdateFile={handleUpdateFile}
         />
         {isBusy ? (
           <div

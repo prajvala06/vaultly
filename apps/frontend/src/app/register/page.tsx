@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 import { AuthShell } from '@/components/auth/auth-shell';
 import { RegisterFormPage } from '@/components/auth/register-form-page';
 
@@ -13,7 +14,9 @@ export default function RegisterPage(): React.ReactElement {
       title="Create your account"
       subtitle="Start storing and sharing files securely in minutes."
     >
-      <RegisterFormPage />
+      <Suspense fallback={null}>
+        <RegisterFormPage />
+      </Suspense>
     </AuthShell>
   );
 }
