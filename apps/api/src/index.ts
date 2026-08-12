@@ -1,14 +1,25 @@
 import type { CorsOptions } from 'cors';
+import type { RequestHandler } from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import express from 'express';
-import helmet from 'helmet';
+import helmetImport from 'helmet';
 import { env, isAllowedCorsOrigin, parseCorsOrigins } from './config/env.js';
 import { errorHandler } from './lib/http.js';
 import { authRouter } from './routes/auth-routes.js';
 import { filesRouter } from './routes/files-routes.js';
 import { foldersRouter } from './routes/folders-routes.js';
 import { usersRouter } from './routes/users-routes.js';
+
+type HelmetFactory = (options?: {
+  crossOriginResourcePolicy?: { policy: 'cross-origin' | 'same-origin' | 'same-site' };
+  crossOriginEmbedderPolicy?: boolean;
+}) => RequestHandler;
+
+const helmet: HelmetFactory =
+  typeof helmetImport === 'function'
+    ? (helmetImport as HelmetFactory)
+    : ((helmetImport as unknown as { default: HelmetFactory }).default);
 
 const app = express();
 const allowedOrigins: readonly string[] = parseCorsOrigins(env.corsOrigin);
