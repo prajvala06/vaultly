@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: vaultly-postgres
+    restart: unless-stopped
+    ports:
+      - '5432:5432'
+    environment:
+      POSTGRES_USER: vaultly
+      POSTGRES_PASSWORD: vaultly
+      POSTGRES_DB: vaultly
+    volumes:
+      - vaultly_pg_data:/var/lib/postgresql/data
+
+volumes:
+  vaultly_pg_data:

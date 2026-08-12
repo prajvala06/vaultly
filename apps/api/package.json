@@ -13,17 +13,30 @@
     "test": "echo \"No API tests yet\" && exit 0"
   },
   "dependencies": {
+    "@prisma/client": "^6.19.3",
     "@vaultly/shared": "*",
+    "bcrypt": "^6.0.0",
+    "cloudinary": "^2.10.0",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
     "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.3",
+    "multer": "^2.2.0",
+    "nodemailer": "^9.0.5",
     "zod": "^4.0.14"
   },
   "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
+    "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/multer": "^2.2.0",
     "@types/node": "^20",
+    "@types/nodemailer": "^8.0.1",
+    "prisma": "^6.19.3",
     "tsx": "^4.20.3",
     "typescript": "^5.9.2"
   }
