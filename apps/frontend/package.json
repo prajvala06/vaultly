@@ -13,6 +13,9 @@
   "dependencies": {
     "@hookform/resolvers": "^5.7.1",
     "@tailwindcss/postcss": "^4",
+    "@types/node": "20.17.6",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
     "@vaultly/shared": "*",
     "framer-motion": "^13.1.0",
     "next": "15.5.23",
@@ -20,16 +23,13 @@
     "react-dom": "19.1.0",
     "react-hook-form": "^7.85.0",
     "tailwindcss": "^4",
+    "typescript": "^5",
     "zod": "^4.4.3",
     "zustand": "^5.0.14"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "15.5.23",
-    "typescript": "^5"
+    "eslint-config-next": "15.5.23"
   }
 }
