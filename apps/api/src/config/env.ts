@@ -58,3 +58,19 @@ export function assertCloudinaryConfigured(): void {
     );
   }
 }
+
+export function normalizeOrigin(origin: string): string {
+  return origin.trim().replace(/\/+$/, '');
+}
+
+export function parseCorsOrigins(raw: string): string[] {
+  return raw
+    .split(',')
+    .map((origin) => normalizeOrigin(origin))
+    .filter((origin) => origin.length > 0);
+}
+
+export function isAllowedCorsOrigin(origin: string, allowedOrigins: readonly string[]): boolean {
+  const normalizedOrigin: string = normalizeOrigin(origin);
+  return allowedOrigins.some((allowedOrigin) => allowedOrigin === normalizedOrigin);
+}
