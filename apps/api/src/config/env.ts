@@ -20,6 +20,9 @@ const cookieSameSiteRaw: string = readOptional('COOKIE_SAME_SITE', cookieSecure 
 const cookieSameSite: 'lax' | 'none' | 'strict' =
   cookieSameSiteRaw === 'none' || cookieSameSiteRaw === 'strict' ? cookieSameSiteRaw : 'lax';
 
+const configuredMaxFileSizeBytes: number = Number(readOptional('MAX_FILE_SIZE_BYTES', '104857600'));
+const vercelUploadLimitBytes: number = Math.floor(4.5 * 1024 * 1024);
+
 export const env = {
   nodeEnv: readOptional('NODE_ENV', 'development'),
   apiPort: Number(process.env.PORT ?? readOptional('API_PORT', '4000')),
@@ -29,11 +32,15 @@ export const env = {
   cookieName: readOptional('COOKIE_NAME', 'vaultly_access_token'),
   cookieSecure,
   cookieSameSite,
+  resendApiKey: process.env.RESEND_API_KEY?.trim() ?? '',
   smtpHost: readOptional('SMTP_HOST', 'smtp.gmail.com'),
   smtpPort: Number(readOptional('SMTP_PORT', '587')),
   smtpUser: process.env.SMTP_USER?.trim() ?? '',
   smtpPass: process.env.SMTP_PASS?.trim() ?? '',
-  smtpFrom: readOptional('SMTP_FROM', process.env.SMTP_USER?.trim() ?? 'Vaultly <noreply@vaultly.app>'),
+  mailFrom: readOptional(
+    'MAIL_FROM',
+    readOptional('SMTP_FROM', process.env.SMTP_USER?.trim() ?? 'Vaultly <onboarding@resend.dev>'),
+  ),
   loginOtpTtlSeconds: Number(
     readOptional('REGISTER_OTP_TTL_SECONDS', readOptional('LOGIN_OTP_TTL_SECONDS', '600')),
   ),
@@ -41,13 +48,20 @@ export const env = {
   cloudinaryApiKey: process.env.CLOUDINARY_API_KEY?.trim() ?? '',
   cloudinaryApiSecret: process.env.CLOUDINARY_API_SECRET?.trim() ?? '',
   cloudinaryFolder: readOptional('CLOUDINARY_FOLDER', 'vaultly'),
-  maxFileSizeBytes: Number(readOptional('MAX_FILE_SIZE_BYTES', '104857600')),
+  maxFileSizeBytes: process.env.VERCEL
+    ? Math.min(configuredMaxFileSizeBytes, vercelUploadLimitBytes)
+    : configuredMaxFileSizeBytes,
   storageQuotaBytes: Number(readOptional('STORAGE_QUOTA_BYTES', String(1 * 1024 * 1024 * 1024))),
 };
 
-export function assertSmtpConfigured(): void {
+export function assertMailConfigured(): void {
+  if (env.resendApiKey) {
+    return;
+  }
   if (!env.smtpUser || !env.smtpPass) {
-    throw new Error('SMTP_USER and SMTP_PASS must be configured to send login codes.');
+    throw new Error(
+      'Configure RESEND_API_KEY for production email, or SMTP_USER and SMTP_PASS for local SMTP.',
+    );
   }
 }
 

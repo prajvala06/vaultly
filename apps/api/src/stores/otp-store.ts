@@ -1,5 +1,7 @@
+import { createHash, timingSafeEqual } from 'node:crypto';
 import { REGISTER_OTP_LENGTH } from '@vaultly/shared';
 import { env } from '../config/env.js';
+import { prisma } from '../lib/prisma.js';
 
 export type RegisterOtpRecord = {
   readonly code: string;
@@ -7,10 +9,21 @@ export type RegisterOtpRecord = {
   readonly userId: string;
 };
 
-const otpByEmail = new Map<string, RegisterOtpRecord>();
-
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
+}
+
+function hashOtpCode(code: string): string {
+  return createHash('sha256').update(code.trim()).digest('hex');
+}
+
+function isMatchingOtpHash(code: string, storedHash: string): boolean {
+  const incoming: Buffer = Buffer.from(hashOtpCode(code), 'utf8');
+  const stored: Buffer = Buffer.from(storedHash, 'utf8');
+  if (incoming.length !== stored.length) {
+    return false;
+  }
+  return timingSafeEqual(incoming, stored);
 }
 
 export function generateRegisterOtpCode(): string {
@@ -19,37 +32,62 @@ export function generateRegisterOtpCode(): string {
   return value.toString().padStart(REGISTER_OTP_LENGTH, '0');
 }
 
-export function saveRegisterOtp(input: {
+export async function saveRegisterOtp(input: {
   email: string;
   userId: string;
   code: string;
-}): RegisterOtpRecord {
-  const record: RegisterOtpRecord = {
+}): Promise<RegisterOtpRecord> {
+  const expiresAt: Date = new Date(Date.now() + env.loginOtpTtlSeconds * 1000);
+  await prisma.user.update({
+    where: { id: input.userId },
+    data: {
+      registerOtpHash: hashOtpCode(input.code),
+      registerOtpExpiresAt: expiresAt,
+    },
+  });
+  return {
     code: input.code,
     userId: input.userId,
-    expiresAt: Date.now() + env.loginOtpTtlSeconds * 1000,
+    expiresAt: expiresAt.getTime(),
   };
-  otpByEmail.set(normalizeEmail(input.email), record);
-  return record;
 }
 
-export function consumeRegisterOtp(email: string, code: string): RegisterOtpRecord | null {
-  const key: string = normalizeEmail(email);
-  const record: RegisterOtpRecord | undefined = otpByEmail.get(key);
-  if (!record) {
+export async function consumeRegisterOtp(
+  email: string,
+  code: string,
+): Promise<RegisterOtpRecord | null> {
+  const user = await prisma.user.findUnique({
+    where: { email: normalizeEmail(email) },
+    select: {
+      id: true,
+      registerOtpHash: true,
+      registerOtpExpiresAt: true,
+    },
+  });
+  if (!user?.registerOtpHash || !user.registerOtpExpiresAt) {
     return null;
   }
-  if (Date.now() > record.expiresAt) {
-    otpByEmail.delete(key);
+  if (Date.now() > user.registerOtpExpiresAt.getTime()) {
+    await clearRegisterOtp(user.id);
     return null;
   }
-  if (record.code !== code.trim()) {
+  if (!isMatchingOtpHash(code, user.registerOtpHash)) {
     return null;
   }
-  otpByEmail.delete(key);
-  return record;
+  await clearRegisterOtp(user.id);
+  return {
+    code: code.trim(),
+    userId: user.id,
+    expiresAt: user.registerOtpExpiresAt.getTime(),
+  };
 }
 
-export function clearRegisterOtp(email: string): void {
-  otpByEmail.delete(normalizeEmail(email));
+export async function clearRegisterOtp(userId: string): Promise<void> {
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      registerOtpHash: null,
+      registerOtpExpiresAt: null,
+    },
+  });
 }

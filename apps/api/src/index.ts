@@ -57,8 +57,12 @@ app.use('/api/users', usersRouter);
 
 app.use(errorHandler);
 
-app.listen(env.apiPort, () => {
-  console.log(`Vaultly API listening on port ${env.apiPort}`);
-  console.log(`CORS allowed origins: ${allowedOrigins.join(', ')}`);
-  console.log(`Cookie secure=${env.cookieSecure}, sameSite=${env.cookieSameSite}`);
-});
+export default app;
+
+if (!process.env.VERCEL) {
+  app.listen(env.apiPort, () => {
+    console.log(`Vaultly API listening on port ${env.apiPort}`);
+    console.log(`CORS allowed origins: ${allowedOrigins.join(', ')}`);
+    console.log(`Cookie secure=${env.cookieSecure}, sameSite=${env.cookieSameSite}`);
+  });
+}

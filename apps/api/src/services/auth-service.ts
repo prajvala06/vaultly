@@ -62,7 +62,7 @@ function createAccessToken(user: User): string {
 
 async function issueRegisterOtp(user: User): Promise<RegisterChallengeResult> {
   const code: string = generateRegisterOtpCode();
-  saveRegisterOtp({ email: user.email, userId: user.id, code });
+  await saveRegisterOtp({ email: user.email, userId: user.id, code });
   try {
     await sendRegisterOtpEmail({ to: user.email, name: user.name, code });
   } catch (error) {
@@ -121,7 +121,7 @@ export async function resendRegisterOtp(rawInput: unknown): Promise<RegisterChal
 export async function verifyRegisterOtp(rawInput: unknown): Promise<VerifyOtpResult> {
   const parsed: VerifyRegisterOtpInput = verifyRegisterOtpSchema.parse(rawInput);
   const email: string = parsed.email.trim().toLowerCase();
-  const record = consumeRegisterOtp(email, parsed.code);
+  const record = await consumeRegisterOtp(email, parsed.code);
   if (!record) {
     throw new HttpError(401, 'INVALID_OTP', 'Invalid or expired confirmation code.');
   }

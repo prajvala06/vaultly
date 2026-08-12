@@ -2,6 +2,7 @@
   "name": "@vaultly/api",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "description": "Vaultly REST API",
   "main": "dist/index.js",
   "scripts": {
