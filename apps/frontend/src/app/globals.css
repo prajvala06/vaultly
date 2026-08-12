@@ -1,0 +1,106 @@
+@import 'tailwindcss';
+:root {
+    --vaultly-bg: #fff8f1;
+    --vaultly-surface: #ffffff;
+    --vaultly-surface-muted: #f7f0e8;
+    --vaultly-border: #f0e4d8;
+    --vaultly-border-strong: #e4d2c0;
+    --vaultly-ink: #1a1523;
+    --vaultly-ink-soft: #4b4458;
+    --vaultly-muted: #8b8398;
+    --vaultly-muted-soft: #b4adbc;
+    --vaultly-accent: #f97316;
+    --vaultly-accent-hover: #ea580c;
+    --vaultly-accent-soft: #ffeacf;
+    --vaultly-sidebar: #0b0b0f;
+    --vaultly-sidebar-hover: #17171d;
+    --vaultly-sidebar-active: #c2410c;
+    --vaultly-blue: #3b82f6;
+    --vaultly-blue-soft: #bad8ff;
+    --vaultly-pink: #ec4899;
+    --vaultly-pink-soft: #ffd3ec;
+    --vaultly-purple: #8b5cf6;
+    --vaultly-purple-soft: #dcd4ff;
+    --vaultly-teal: #14b8a6;
+    --vaultly-teal-soft: #cafff4;
+    --vaultly-sage: #0d9488;
+    --vaultly-sage-soft: #ccfbf1;
+    --vaultly-danger: #e11d48;
+    --vaultly-danger-soft: #ffe4e6;
+    --vaultly-shadow: 0 10px 30px rgba(28, 25, 23, 0.06);
+    --vaultly-radius: 20px;
+}
+
+@theme inline {
+    --color-vaultly-bg: var(--vaultly-bg);
+    --color-vaultly-surface: var(--vaultly-surface);
+    --color-vaultly-surface-muted: var(--vaultly-surface-muted);
+    --color-vaultly-border: var(--vaultly-border);
+    --color-vaultly-border-strong: var(--vaultly-border-strong);
+    --color-vaultly-ink: var(--vaultly-ink);
+    --color-vaultly-ink-soft: var(--vaultly-ink-soft);
+    --color-vaultly-muted: var(--vaultly-muted);
+    --color-vaultly-muted-soft: var(--vaultly-muted-soft);
+    --color-vaultly-accent: var(--vaultly-accent);
+    --color-vaultly-accent-hover: var(--vaultly-accent-hover);
+    --color-vaultly-accent-soft: var(--vaultly-accent-soft);
+    --color-vaultly-sidebar: var(--vaultly-sidebar);
+    --color-vaultly-sidebar-hover: var(--vaultly-sidebar-hover);
+    --color-vaultly-sidebar-active: var(--vaultly-sidebar-active);
+    --color-vaultly-blue: var(--vaultly-blue);
+    --color-vaultly-blue-soft: var(--vaultly-blue-soft);
+    --color-vaultly-pink: var(--vaultly-pink);
+    --color-vaultly-pink-soft: var(--vaultly-pink-soft);
+    --color-vaultly-purple: var(--vaultly-purple);
+    --color-vaultly-purple-soft: var(--vaultly-purple-soft);
+    --color-vaultly-teal: var(--vaultly-teal);
+    --color-vaultly-teal-soft: var(--vaultly-teal-soft);
+    --color-vaultly-sage: var(--vaultly-sage);
+    --color-vaultly-sage-soft: var(--vaultly-sage-soft);
+    --color-vaultly-danger: var(--vaultly-danger);
+    --color-vaultly-danger-soft: var(--vaultly-danger-soft);
+    --shadow-vaultly: var(--vaultly-shadow);
+    --radius-vaultly: var(--vaultly-radius);
+    --font-sans: var(--font-plus-jakarta);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    min-height: 100%;
+}
+
+body {
+    margin: 0;
+    background: var(--vaultly-bg);
+    color: var(--vaultly-ink);
+    font-family: var(--font-plus-jakarta), 'Segoe UI', sans-serif;
+}
+
+button,
+input {
+    font: inherit;
+}
+
+::selection {
+    background: #fed7aa;
+    color: var(--vaultly-ink);
+}
+
+@keyframes vaultly-shimmer {
+    0% {
+        background-position: 200% 0;
+    }
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+.vaultly-shimmer {
+    background: linear-gradient(to right, #f0f0f0 0%, #f8f8f8 50%, #f0f0f0 100%);
+    background-size: 200% 100%;
+    animation: vaultly-shimmer 1.35s ease-in-out infinite;
+}
