@@ -1,0 +1,81 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum FileVisibility {
+  PRIVATE
+  LINK
+  SHARED
+  PUBLIC
+}
+
+model User {
+  id              String       @id @default(cuid())
+  name            String
+  email           String       @unique
+  passwordHash    String
+  emailVerifiedAt DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  files           File[]
+  sharedFiles     FileShare[]
+  folders         Folder[]
+
+  @@map("users")
+}
+
+model File {
+  id               String         @id @default(cuid())
+  userId           String
+  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  folderId         String?
+  folder           Folder?        @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  originalName     String
+  mimeType         String
+  bytes            Int
+  visibility       FileVisibility @default(PRIVATE)
+  cloudinaryPublicId String
+  cloudinaryResourceType String
+  secureUrl        String
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  deletedAt        DateTime?
+  shares           FileShare[]
+
+  @@index([userId, createdAt])
+  @@index([userId, deletedAt])
+  @@index([folderId])
+  @@map("files")
+}
+
+model Folder {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  files     File[]
+
+  @@unique([userId, name])
+  @@index([userId, createdAt])
+  @@map("folders")
+}
+
+model FileShare {
+  id        String   @id @default(cuid())
+  fileId    String
+  file      File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([fileId, userId])
+  @@index([userId, createdAt])
+  @@map("file_shares")
+}

@@ -17,3 +17,37 @@ export type ApiErrorResponse = {
 };
 
 export type ApiResponse<T> = ApiSuccessResponse<T> | ApiErrorResponse;
+
+export {
+  PASSWORD_MIN_LENGTH,
+  PASSWORD_REQUIREMENTS,
+  REGISTER_OTP_LENGTH,
+  loginSchema,
+  passwordSchema,
+  registerSchema,
+  resendRegisterOtpSchema,
+  verifyRegisterOtpSchema,
+  type LoginInput,
+  type RegisterInput,
+  type ResendRegisterOtpInput,
+  type VerifyRegisterOtpInput,
+} from './auth.js';
+
+export type {
+  CreateFolderResponse,
+  ListFoldersResponse,
+  VaultFolderDto,
+} from './folders.js';
+
+export type { UserLookupDto, UserLookupResponse } from './users.js';
+
+export type {
+  FileType,
+  FileVisibility,
+  ListFilesResponse,
+  ListSharedWithMeResponse,
+  SharedFileDto,
+  StorageSummaryDto,
+  UploadFileResponse,
+  VaultFileDto,
+} from './files.js';
