@@ -12,6 +12,7 @@
     "dev:web": "npm run dev -w @vaultly/web",
     "dev:api": "npm run dev -w @vaultly/api",
     "build": "npm run build --workspaces --if-present",
+    "build:web": "npm run build --workspace=@vaultly/shared && npm run build --workspace=@vaultly/web",
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
