@@ -65,6 +65,35 @@ export async function fetchCloudinaryAsset(input: {
   return response;
 }
 
+export async function createSignedUploadParams(input: {
+  userId: string;
+  folder?: string;
+}): Promise<{
+  cloudName: string;
+  apiKey: string;
+  timestamp: number;
+  signature: string;
+  folder: string;
+}> {
+  configureCloudinary();
+  const timestamp: number = Math.round(Date.now() / 1000);
+  const folder: string = input.folder ?? `${env.cloudinaryFolder}/${input.userId}`;
+  const paramsToSign: Record<string, string | number> = {
+    timestamp,
+    folder,
+    use_filename: 'true',
+    unique_filename: 'true',
+  };
+  const signature: string = cloudinary.utils.api_sign_request(paramsToSign, env.cloudinaryApiSecret);
+  return {
+    cloudName: env.cloudinaryCloudName,
+    apiKey: env.cloudinaryApiKey,
+    timestamp,
+    signature,
+    folder,
+  };
+}
+
 export async function uploadBufferToCloudinary(input: {
   buffer: Buffer;
   folder: string;

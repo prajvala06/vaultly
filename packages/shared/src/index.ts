@@ -43,7 +43,9 @@ export type { UserLookupDto, UserLookupResponse } from './users.js';
 
 export {
   FILE_VISIBILITY_VALUES,
+  completeCloudinaryUploadSchema,
   updateFileSchema,
+  type CompleteCloudinaryUploadInput,
   type FileType,
   type FileVisibility,
   type ListFilesResponse,
@@ -53,5 +55,6 @@ export {
   type UpdateFileInput,
   type UpdateFileResponse,
   type UploadFileResponse,
+  type UploadSignatureResponse,
   type VaultFileDto,
 } from './files.js';

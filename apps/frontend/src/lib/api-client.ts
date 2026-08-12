@@ -96,7 +96,7 @@ export async function apiRequest<T>(path: string, init: ApiRequestInit = {}): Pr
 }
 
 export async function apiUploadFile<T>(
-  path: string,
+  _path: string,
   file: File,
   options?: {
     visibility?: 'PRIVATE' | 'LINK' | 'SHARED' | 'PUBLIC';
@@ -104,44 +104,98 @@ export async function apiUploadFile<T>(
     onProgress?: (percent: number) => void;
   },
 ): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
+  const signature = await apiRequest<{
+    cloudName: string;
+    apiKey: string;
+    timestamp: number;
+    signature: string;
+    folder: string;
+    maxFileSizeBytes: number;
+  }>('/api/files/upload-signature', {
+    method: 'POST',
+    body: JSON.stringify({ bytes: file.size }),
+  });
+  if (file.size > signature.maxFileSizeBytes) {
+    throw new ApiClientError(
+      400,
+      'FILE_TOO_LARGE',
+      `File exceeds the maximum size of ${Math.round(signature.maxFileSizeBytes / (1024 * 1024))} MB.`,
+    );
+  }
+  const cloudinaryResult = await new Promise<{
+    public_id: string;
+    secure_url: string;
+    bytes: number;
+    resource_type: string;
+  }>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open('POST', `${getApiBaseUrl()}${path}`);
-    xhr.withCredentials = true;
+    xhr.open('POST', `https://api.cloudinary.com/v1_1/${signature.cloudName}/auto/upload`);
     xhr.upload.onprogress = (event: ProgressEvent<EventTarget>) => {
       if (!options?.onProgress || !event.lengthComputable || event.total <= 0) {
         return;
       }
       const percent: number = Math.round((event.loaded / event.total) * 100);
-      options.onProgress(Math.min(99, Math.max(0, percent)));
+      options.onProgress(Math.min(95, Math.max(0, percent)));
     };
     xhr.upload.onloadstart = () => {
       options?.onProgress?.(0);
     };
     xhr.onload = () => {
       try {
-        const body = JSON.parse(xhr.responseText) as ApiResponse<T>;
-        if (!body.success) {
-          handleUnauthenticatedResponse(body.error.code);
-          reject(new ApiClientError(xhr.status, body.error.code, body.error.message));
+        const body = JSON.parse(xhr.responseText) as {
+          public_id?: string;
+          secure_url?: string;
+          bytes?: number;
+          resource_type?: string;
+          error?: { message?: string };
+        };
+        if (xhr.status < 200 || xhr.status >= 300 || !body.public_id || !body.secure_url) {
+          reject(
+            new ApiClientError(
+              xhr.status || 502,
+              'UPLOAD_FAILED',
+              body.error?.message ?? 'Cloudinary upload failed.',
+            ),
+          );
           return;
         }
-        resolve(body.data);
+        resolve({
+          public_id: body.public_id,
+          secure_url: body.secure_url,
+          bytes: body.bytes ?? file.size,
+          resource_type: body.resource_type ?? 'raw',
+        });
       } catch {
-        reject(new ApiClientError(xhr.status, 'INVALID_RESPONSE', 'Unexpected server response.'));
+        reject(new ApiClientError(xhr.status, 'INVALID_RESPONSE', 'Unexpected Cloudinary response.'));
       }
     };
     xhr.onerror = () => {
-      reject(
-        new ApiClientError(0, 'NETWORK_ERROR', 'Could not reach the server. Is the API running?'),
-      );
+      reject(new ApiClientError(0, 'NETWORK_ERROR', 'Could not reach Cloudinary.'));
     };
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('visibility', options?.visibility ?? 'PRIVATE');
-    if (options?.folderId) {
-      formData.append('folderId', options.folderId);
-    }
+    formData.append('api_key', signature.apiKey);
+    formData.append('timestamp', String(signature.timestamp));
+    formData.append('signature', signature.signature);
+    formData.append('folder', signature.folder);
+    formData.append('use_filename', 'true');
+    formData.append('unique_filename', 'true');
     xhr.send(formData);
   });
+  options?.onProgress?.(97);
+  const completed = await apiRequest<T>('/api/files/complete-upload', {
+    method: 'POST',
+    body: JSON.stringify({
+      publicId: cloudinaryResult.public_id,
+      secureUrl: cloudinaryResult.secure_url,
+      bytes: cloudinaryResult.bytes,
+      resourceType: cloudinaryResult.resource_type,
+      originalName: file.name,
+      mimeType: file.type || 'application/octet-stream',
+      visibility: options?.visibility ?? 'PRIVATE',
+      folderId: options?.folderId ?? null,
+    }),
+  });
+  options?.onProgress?.(100);
+  return completed;
 }

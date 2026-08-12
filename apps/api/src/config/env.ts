@@ -21,7 +21,6 @@ const cookieSameSite: 'lax' | 'none' | 'strict' =
   cookieSameSiteRaw === 'none' || cookieSameSiteRaw === 'strict' ? cookieSameSiteRaw : 'lax';
 
 const configuredMaxFileSizeBytes: number = Number(readOptional('MAX_FILE_SIZE_BYTES', '104857600'));
-const vercelUploadLimitBytes: number = Math.floor(4.5 * 1024 * 1024);
 
 export const env = {
   nodeEnv: readOptional('NODE_ENV', 'development'),
@@ -48,9 +47,7 @@ export const env = {
   cloudinaryApiKey: process.env.CLOUDINARY_API_KEY?.trim() ?? '',
   cloudinaryApiSecret: process.env.CLOUDINARY_API_SECRET?.trim() ?? '',
   cloudinaryFolder: readOptional('CLOUDINARY_FOLDER', 'vaultly'),
-  maxFileSizeBytes: process.env.VERCEL
-    ? Math.min(configuredMaxFileSizeBytes, vercelUploadLimitBytes)
-    : configuredMaxFileSizeBytes,
+  maxFileSizeBytes: configuredMaxFileSizeBytes,
   storageQuotaBytes: Number(readOptional('STORAGE_QUOTA_BYTES', String(1 * 1024 * 1024 * 1024))),
 };
 

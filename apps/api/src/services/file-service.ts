@@ -1,17 +1,24 @@
 import type { File as DbFile } from '@prisma/client';
 import type {
+  CompleteCloudinaryUploadInput,
   FileVisibility,
   ListFilesResponse,
   ListSharedWithMeResponse,
   SharedFileDto,
   UpdateFileResponse,
   UploadFileResponse,
+  UploadSignatureResponse,
   VaultFileDto,
 } from '@vaultly/shared';
 import { env } from '../config/env.js';
 import { HttpError } from '../lib/http.js';
 import { prisma } from '../lib/prisma.js';
-import { deleteCloudinaryAsset, fetchCloudinaryAsset, uploadBufferToCloudinary } from './cloudinary-service.js';
+import {
+  createSignedUploadParams,
+  deleteCloudinaryAsset,
+  fetchCloudinaryAsset,
+  uploadBufferToCloudinary,
+} from './cloudinary-service.js';
 import { buildStorageSummary, mapFileToDto, mapFileToSharedDto } from './file-mapper.js';
 
 type UploadedMulterFile = {
@@ -145,6 +152,120 @@ export async function shareFileWithUser(input: {
     }),
   ]);
   return { ok: true };
+}
+
+function resolveVisibility(
+  visibility: FileVisibility | undefined,
+): 'PRIVATE' | 'LINK' | 'SHARED' | 'PUBLIC' {
+  if (visibility === 'PUBLIC') {
+    return 'PUBLIC';
+  }
+  if (visibility === 'SHARED') {
+    return 'SHARED';
+  }
+  if (visibility === 'LINK') {
+    return 'LINK';
+  }
+  return 'PRIVATE';
+}
+
+async function resolveOwnedFolderId(userId: string, folderId?: string | null): Promise<string | null> {
+  if (!folderId) {
+    return null;
+  }
+  const folder = await prisma.folder.findFirst({
+    where: {
+      id: folderId,
+      userId,
+    },
+  });
+  if (!folder) {
+    throw new HttpError(404, 'FOLDER_NOT_FOUND', 'Folder not found.');
+  }
+  return folder.id;
+}
+
+export async function createUploadSignature(input: {
+  userId: string;
+  bytes: number;
+}): Promise<UploadSignatureResponse> {
+  if (input.bytes <= 0) {
+    throw new HttpError(400, 'FILE_EMPTY', 'The selected file is empty.');
+  }
+  if (input.bytes > env.maxFileSizeBytes) {
+    throw new HttpError(
+      400,
+      'FILE_TOO_LARGE',
+      `File exceeds the maximum size of ${Math.round(env.maxFileSizeBytes / (1024 * 1024))} MB.`,
+    );
+  }
+  const stats = await getStorageStats(input.userId);
+  if (stats.usedBytes + input.bytes > env.storageQuotaBytes) {
+    throw new HttpError(400, 'QUOTA_EXCEEDED', 'Not enough storage space for this upload.');
+  }
+  const signed = await createSignedUploadParams({ userId: input.userId });
+  return {
+    ...signed,
+    maxFileSizeBytes: env.maxFileSizeBytes,
+  };
+}
+
+export async function completeCloudinaryUpload(input: {
+  userId: string;
+  body: CompleteCloudinaryUploadInput;
+}): Promise<UploadFileResponse> {
+  const expectedFolderPrefix: string = `${env.cloudinaryFolder}/${input.userId}/`;
+  if (!input.body.publicId.startsWith(expectedFolderPrefix)) {
+    throw new HttpError(400, 'INVALID_UPLOAD', 'Upload does not belong to this account.');
+  }
+  if (input.body.bytes > env.maxFileSizeBytes) {
+    throw new HttpError(
+      400,
+      'FILE_TOO_LARGE',
+      `File exceeds the maximum size of ${Math.round(env.maxFileSizeBytes / (1024 * 1024))} MB.`,
+    );
+  }
+  const stats = await getStorageStats(input.userId);
+  if (stats.usedBytes + input.body.bytes > env.storageQuotaBytes) {
+    throw new HttpError(400, 'QUOTA_EXCEEDED', 'Not enough storage space for this upload.');
+  }
+  const resolvedFolderId: string | null = await resolveOwnedFolderId(
+    input.userId,
+    input.body.folderId,
+  );
+  const visibility = resolveVisibility(input.body.visibility);
+  let created: DbFile & { user: { name: string } };
+  try {
+    created = await prisma.file.create({
+      data: {
+        userId: input.userId,
+        originalName: input.body.originalName,
+        mimeType: input.body.mimeType || 'application/octet-stream',
+        bytes: input.body.bytes,
+        cloudinaryPublicId: input.body.publicId,
+        cloudinaryResourceType: input.body.resourceType,
+        secureUrl: input.body.secureUrl,
+        visibility,
+        folderId: resolvedFolderId,
+      },
+      include: {
+        user: {
+          select: { name: true },
+        },
+      },
+    });
+  } catch (error) {
+    await deleteCloudinaryAsset({
+      publicId: input.body.publicId,
+      resourceType: input.body.resourceType,
+    }).catch(() => undefined);
+    console.error('Failed to persist uploaded file metadata', error);
+    throw new HttpError(500, 'UPLOAD_PERSIST_FAILED', 'Upload succeeded but saving metadata failed.');
+  }
+  return {
+    file: mapFileToDto(created),
+    storage: await getStorageSummaryForUser(input.userId),
+  };
 }
 
 export async function uploadUserFile(input: {
