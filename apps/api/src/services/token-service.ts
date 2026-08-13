@@ -9,8 +9,10 @@ export type AccessTokenPayload = {
 };
 
 export function signAccessToken(payload: AccessTokenPayload): string {
+  const expiresInSeconds: number = env.accessTokenTtlSeconds;
   return jwt.sign(payload, env.jwtAccessSecret, {
-    expiresIn: env.accessTokenTtlSeconds,
+    // String form avoids jsonwebtoken rejecting non-plain Number values from env parsing.
+    expiresIn: `${expiresInSeconds}s`,
   });
 }
 

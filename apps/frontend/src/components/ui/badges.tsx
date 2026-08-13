@@ -16,14 +16,14 @@ export function VisibilityBadge({ visibility }: VisibilityBadgeProps): React.Rea
   if (visibility === 'LINK') {
     return (
       <span className="inline-flex items-center rounded-full bg-vaultly-blue-soft px-2.5 py-1 text-xs font-semibold text-vaultly-blue">
-        Link
+        Public
       </span>
     );
   }
   if (visibility === 'SHARED') {
     return (
       <span className="inline-flex items-center rounded-full bg-vaultly-pink-soft px-2.5 py-1 text-xs font-semibold text-vaultly-pink">
-        Shared
+        Public
       </span>
     );
   }
