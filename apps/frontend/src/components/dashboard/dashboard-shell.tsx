@@ -19,6 +19,7 @@ import {
   getVaultViewCopy,
   type VaultView,
 } from '@/lib/vault-view';
+import { getFileContentUrl } from '@/lib/api-client';
 import Image from 'next/image';
 
 type ViewMode = 'list' | 'grid';
@@ -132,6 +133,17 @@ type FileGridProps = {
   emptyMessage: string;
 };
 
+function isVideoFile(file: VaultFile): boolean {
+  const mime = (file.mimeLabel || '').toLowerCase();
+  if (mime.includes('video')) return true;
+  const name = (file.name || '').toLowerCase();
+  return name.endsWith('.mp4') || name.endsWith('.mov') || name.endsWith('.webm') || name.endsWith('.mkv');
+}
+
+function isPdfFile(file: VaultFile): boolean {
+  return file.type === 'pdf' || (file.name || '').toLowerCase().endsWith('.pdf');
+}
+
 function FileGrid({
   files,
   selectedFileId,
@@ -141,7 +153,7 @@ function FileGrid({
 }: FileGridProps): React.ReactElement {
   if (files.length === 0) {
     return (
-      <div className="rounded-3xl border border-dashed border-vaultly-border bg-white px-6 py-16 text-center shadow-vaultly">
+      <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
         <Image
           src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRnIngcfrKBeDgxUOATcvIMseCRJyYA8XQ8Blbh-9sx0nT4x6hDJDX7ziY&s=10"
           width={200}
@@ -158,6 +170,7 @@ function FileGrid({
       {files.map((file) => {
         const isSelected: boolean = file.id === selectedFileId;
         const tone = getFileTypeTone(file.type);
+        const showPreview = file.type === 'image' || isVideoFile(file) || isPdfFile(file);
         return (
           <button
             key={file.id}
@@ -165,19 +178,66 @@ function FileGrid({
             onClick={() => onSelectFile(file.id)}
             className={
               isSelected
-                ? 'rounded-3xl border border-orange-200 bg-vaultly-accent-soft p-4 text-left shadow-vaultly'
-                : 'rounded-3xl border border-vaultly-border bg-white p-4 text-left transition-colors hover:bg-orange-50'
+                ? 'flex flex-col overflow-hidden rounded-3xl border border-orange-200 bg-gray-200 text-left shadow-vaultly'
+                : 'flex flex-col overflow-hidden rounded-3xl border border-vaultly-border bg-white text-left transition-colors hover:bg-gray-200 cursor-pointer'
             }
           >
-            <span
-              className={`mb-3 flex h-10 w-10 items-center justify-center rounded-full ${tone.wrap}`}
-            >
-              <FileTypeIcon type={file.type} className="h-5 w-5" />
-            </span>
-            <p className="truncate text-sm font-semibold text-vaultly-ink">{file.name}</p>
-            <p className="mt-1 text-xs text-vaultly-muted">
-              {file.sizeLabel} · {file.modifiedLabel}
-            </p>
+            {showPreview ? (
+              <>
+                <div className="relative aspect-video w-full overflow-hidden bg-gray-100">
+                  {file.type === 'image' ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={getFileContentUrl(file.id)}
+                      alt={file.name}
+                      className="h-full w-full object-cover"
+                      loading="lazy"
+                      crossOrigin="use-credentials"
+                    />
+                  ) : isVideoFile(file) ? (
+                    <>
+                      <video
+                        src={getFileContentUrl(file.id)}
+                        className="h-full w-full object-cover"
+                        preload="metadata"
+                        crossOrigin="use-credentials"
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm">
+                          <svg className="ml-1 h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M8 5v14l11-7z" />
+                          </svg>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <iframe
+                      src={`${getFileContentUrl(file.id)}#toolbar=0&navpanes=0&scrollbar=0`}
+                      className="h-full w-full pointer-events-none"
+                      title={file.name}
+                    />
+                  )}
+                </div>
+                <div className="flex flex-1 flex-col p-4">
+                  <p className="truncate text-sm font-semibold text-vaultly-ink">{file.name}</p>
+                  <p className="mt-1 text-xs text-vaultly-muted">
+                    {file.sizeLabel} · {file.modifiedLabel}
+                  </p>
+                </div>
+              </>
+            ) : (
+              <div className="flex h-full w-full flex-col p-4">
+                <span
+                  className={`mb-3 flex h-10 w-10 items-center justify-center rounded-full ${tone.wrap}`}
+                >
+                  <FileTypeIcon type={file.type} className="h-5 w-5" />
+                </span>
+                <p className="truncate text-sm font-semibold text-vaultly-ink">{file.name}</p>
+                <p className="mt-1 text-xs text-vaultly-muted">
+                  {file.sizeLabel} · {file.modifiedLabel}
+                </p>
+              </div>
+            )}
           </button>
         );
       })}

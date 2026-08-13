@@ -9,7 +9,7 @@ import type {
   UploadFileResponse,
   VaultFileDto,
 } from '@vaultly/shared';
-import { env } from '../config/env.js';
+import { env, isMailConfigured } from '../config/env.js';
 import { HttpError } from '../lib/http.js';
 import { prisma } from '../lib/prisma.js';
 import {
@@ -18,6 +18,7 @@ import {
   uploadBufferToCloudinary,
 } from './cloudinary-service.js';
 import { buildStorageSummary, mapFileToDto, mapFileToSharedDto } from './file-mapper.js';
+import { sendFileShareEmail } from './mail-service.js';
 
 type UploadedMulterFile = {
   originalname: string;
@@ -152,6 +153,11 @@ export async function shareFileWithUser(input: {
       userId: input.ownerId,
       deletedAt: null,
     },
+    include: {
+      user: {
+        select: { name: true },
+      },
+    },
   });
   if (!file) {
     throw new HttpError(404, 'FILE_NOT_FOUND', 'File not found.');
@@ -186,7 +192,38 @@ export async function shareFileWithUser(input: {
       },
     }),
   ]);
+  await notifyRecipientOfShare({
+    recipientEmail: recipient.email,
+    recipientName: recipient.name,
+    senderName: file.user.name,
+    fileName: file.originalName,
+    fileId: file.id,
+  });
   return { ok: true };
+}
+
+async function notifyRecipientOfShare(input: {
+  recipientEmail: string;
+  recipientName: string;
+  senderName: string;
+  fileName: string;
+  fileId: string;
+}): Promise<void> {
+  if (!isMailConfigured()) {
+    console.warn('Skipping share email because mail is not configured.');
+    return;
+  }
+  try {
+    await sendFileShareEmail({
+      to: input.recipientEmail,
+      recipientName: input.recipientName,
+      senderName: input.senderName,
+      fileName: input.fileName,
+      fileId: input.fileId,
+    });
+  } catch (error) {
+    console.error('Failed to send file share email', error);
+  }
 }
 
 export async function uploadUserFile(input: {

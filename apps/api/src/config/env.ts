@@ -34,12 +34,16 @@ const cookieSecure: boolean = readOptional('COOKIE_SECURE', 'false') === 'true';
 const cookieSameSiteRaw: string = readOptional('COOKIE_SAME_SITE', cookieSecure ? 'none' : 'lax');
 const cookieSameSite: 'lax' | 'none' | 'strict' =
   cookieSameSiteRaw === 'none' || cookieSameSiteRaw === 'strict' ? cookieSameSiteRaw : 'lax';
+const corsOrigin: string = readOptional('CORS_ORIGIN', 'http://localhost:3000');
 
 export const env = {
   nodeEnv: readOptional('NODE_ENV', 'development'),
   apiHost: readOptional('API_HOST', '0.0.0.0'),
   apiPort: readPositiveInt('PORT', readPositiveInt('API_PORT', 4000)),
-  corsOrigin: readOptional('CORS_ORIGIN', 'http://localhost:3000'),
+  corsOrigin,
+  appUrl: normalizeOrigin(
+    readOptional('APP_URL', parseCorsOrigins(corsOrigin)[0] ?? 'https://vaultly-store.vercel.app'),
+  ),
   jwtAccessSecret: readOptional('JWT_ACCESS_SECRET', 'dev-only-change-me-to-a-long-random-secret'),
   accessTokenTtlSeconds: readPositiveInt('ACCESS_TOKEN_TTL_SECONDS', 900),
   cookieName: readOptional('COOKIE_NAME', 'vaultly_access_token'),
@@ -66,15 +70,20 @@ export const env = {
   storageQuotaBytes: readPositiveInt('STORAGE_QUOTA_BYTES', 1 * 1024 * 1024 * 1024),
 };
 
-export function assertMailConfigured(): void {
+export function isMailConfigured(): boolean {
   if (env.resendApiKey) {
+    return true;
+  }
+  return Boolean(env.smtpUser && env.smtpPass);
+}
+
+export function assertMailConfigured(): void {
+  if (isMailConfigured()) {
     return;
   }
-  if (!env.smtpUser || !env.smtpPass) {
-    throw new Error(
-      'Configure RESEND_API_KEY for production email, or SMTP_USER and SMTP_PASS for local SMTP.',
-    );
-  }
+  throw new Error(
+    'Configure RESEND_API_KEY for production email, or SMTP_USER and SMTP_PASS for local SMTP.',
+  );
 }
 
 export function assertCloudinaryConfigured(): void {

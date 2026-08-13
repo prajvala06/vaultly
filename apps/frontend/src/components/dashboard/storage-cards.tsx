@@ -7,6 +7,7 @@ import type {
   StorageSummaryDto,
   VaultFile,
 } from '@/lib/vault-file';
+import Link from 'next/link';
 
 type StorageCardsProps = {
   files: readonly VaultFile[];
@@ -21,6 +22,7 @@ type CategoryCard = {
   softClassName: string;
   accentClassName: string;
   icon: React.ReactNode;
+  href: string;
 };
 
 const MAX_STORAGE_BYTES = 1024 * 1024 * 1024; // 1 GB
@@ -119,6 +121,7 @@ function buildCategories(
       icon: (
         <FilesIcon className="h-5 w-5 text-vaultly-blue" />
       ),
+      href: '/my-vault',
     },
 
     {
@@ -136,6 +139,7 @@ function buildCategories(
       icon: (
         <VaultLogoIcon className="h-5 w-5 text-vaultly-pink" />
       ),
+      href: '/my-vault',
     },
 
     {
@@ -153,6 +157,7 @@ function buildCategories(
       icon: (
         <ShareIcon className="h-5 w-5 text-vaultly-purple" />
       ),
+      href: '/shared-with-me',
     },
   ];
 }
@@ -196,12 +201,14 @@ export function StorageCards({
               </h3>
             </div>
 
-            <button
-              type="button"
+            <Link
+              href={category.href}
               className="cursor-pointer text-xs font-semibold text-vaultly-ink-soft transition-colors hover:text-vaultly-ink"
             >
-              View
-            </button>
+              <span className="text-xs font-semibold text-vaultly-ink-soft transition-colors hover:text-vaultly-ink">
+                View
+              </span>
+            </Link>
           </div>
 
           <p className="mt-4 pl-4 text-sm text-vaultly-ink-soft">
