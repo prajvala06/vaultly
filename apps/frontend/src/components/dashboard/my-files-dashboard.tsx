@@ -33,7 +33,7 @@ type ViewMode = 'list' | 'grid';
 
 function filterByFolder(files: readonly VaultFile[], folderId: string): readonly VaultFile[] {
   if (folderId === 'all') {
-    return files;
+    return files.filter((file) => file.folderId === null);
   }
   if (
     folderId !== 'documents' &&
