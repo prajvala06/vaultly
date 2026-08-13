@@ -164,11 +164,11 @@ export function DashboardSearch({
   function handleSelectFolder(folderId: string): void {
     const queryValue: string = buildFolderQueryValue(folderId, folders);
     if (!queryValue) {
-      router.push('/my-files');
+      router.push('/my-vault');
       setIsOpen(false);
       return;
     }
-    router.push(`/my-files?folder=${encodeURIComponent(queryValue)}`);
+    router.push(`/my-vault?folder=${encodeURIComponent(queryValue)}`);
     setIsOpen(false);
   }
 

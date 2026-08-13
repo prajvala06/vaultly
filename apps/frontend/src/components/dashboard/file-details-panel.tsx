@@ -17,6 +17,7 @@ import { FileTypeIcon, VisibilityBadge, getFileTypeTone } from '@/components/ui/
 import type { VaultFile } from '@/lib/vault-file';
 import { RenameFileDialog } from '@/components/dashboard/rename-file-dialog';
 import { SharePopover } from '@/components/dashboard/share-popover';
+import { getFileContentUrl } from '@/lib/api-client';
 
 const VISIBILITY_OPTIONS: readonly { value: FileVisibility; label: string }[] = [
   { value: 'PRIVATE', label: 'Only me' },
@@ -24,6 +25,17 @@ const VISIBILITY_OPTIONS: readonly { value: FileVisibility; label: string }[] = 
   { value: 'SHARED', label: 'People you add' },
   { value: 'PUBLIC', label: 'Anyone' },
 ];
+
+function isVideoFile(file: VaultFile): boolean {
+  const mime = (file.mimeLabel || '').toLowerCase();
+  if (mime.includes('video')) return true;
+  const name = (file.name || '').toLowerCase();
+  return name.endsWith('.mp4') || name.endsWith('.mov') || name.endsWith('.webm') || name.endsWith('.mkv');
+}
+
+function isPdfFile(file: VaultFile): boolean {
+  return file.type === 'pdf' || (file.name || '').toLowerCase().endsWith('.pdf');
+}
 
 type FileDetailsPanelProps = {
   file: VaultFile | null;
@@ -109,7 +121,7 @@ export function FileDetailsPanel({
           <motion.button
             type="button"
             aria-label="Close details overlay"
-            className="absolute inset-0 bg-black/25 backdrop-blur-[3px]"
+            className="absolute inset-0 bg-black/70 backdrop-blur-[3px]"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -127,9 +139,12 @@ export function FileDetailsPanel({
             transition={{ type: 'spring', stiffness: 420, damping: 34, mass: 0.8 }}
           >
             <div className="flex items-center justify-between border-b border-vaultly-border px-5 py-4">
-              <h2 id="file-details-title" className="text-sm md:text-base lg:text-lg font-semibold text-vaultly-ink">
-                File preview
-              </h2>
+              <div>
+                <h3 className="text-base font-semibold text-vaultly-ink">{file.name}</h3>
+                <p className="mt-1 text-sm text-vaultly-muted">
+                  {file.sizeLabel} · {file.mimeLabel}
+                </p>
+              </div>
               <button
                 type="button"
                 aria-label="Close details"
@@ -147,22 +162,54 @@ export function FileDetailsPanel({
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.22, ease: 'easeOut', delay: 0.05 }}
             >
-              <div className="rounded-3xl bg-gray-100 p-6 text-center">
-                <span
-                  className={`mx-auto flex h-16 w-16 items-center justify-center rounded-3xl ${getFileTypeTone(file.type).wrap}`}
-                >
-                  <FileTypeIcon type={file.type} className="h-8 w-8" />
-                </span>
-                <h3 className="mt-4 text-base font-semibold text-vaultly-ink">{file.name}</h3>
-                <p className="mt-1 text-sm text-vaultly-muted">
-                  {file.sizeLabel} · {file.mimeLabel}
-                </p>
+              <div className="overflow-hidden rounded-3xl bg-gray-100 text-center">
+                {(file.type === 'image' || isVideoFile(file) || isPdfFile(file)) ? (
+                  <div className="relative aspect-video w-full bg-black/5">
+                    {file.type === 'image' ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={getFileContentUrl(file.id)}
+                        alt={file.name}
+                        className="h-full w-full object-contain"
+                        loading="lazy"
+                        crossOrigin="use-credentials"
+                      />
+                    ) : isVideoFile(file) ? (
+                      <video
+                        src={getFileContentUrl(file.id)}
+                        className="h-full w-full object-cover"
+                        controls
+                        crossOrigin="use-credentials"
+                      />
+                    ) : (
+                      <iframe
+                        src={`${getFileContentUrl(file.id)}#toolbar=0&navpanes=0&scrollbar=0`}
+                        className="h-full w-full bg-white"
+                        title={file.name}
+                      />
+                    )}
+                  </div>
+                ) : (
+                  <div className="pt-8">
+                    <span
+                      className={`mx-auto flex h-16 w-16 items-center justify-center rounded-3xl ${getFileTypeTone(file.type).wrap}`}
+                    >
+                      <FileTypeIcon type={file.type} className="h-8 w-8" />
+                    </span>
+                  </div>
+                )}
+                {/* <div className="p-3">
+                  <h3 className="text-base font-semibold text-vaultly-ink">{file.name}</h3>
+                  <p className="mt-1 text-sm text-vaultly-muted">
+                    {file.sizeLabel} · {file.mimeLabel}
+                  </p>
+                </div> */}
               </div>
-              <div className="space-y-3 rounded-3xl border border-gray-300 bg-gray-100 p-4">
-                <MetaRow label="Owner">
+              {/* <div className="space-y-3 rounded-3xl border border-gray-300 bg-gray-100 p-4"> */}
+              {/* <MetaRow label="Owner">
                   <span className="text-sm text-vaultly-ink-soft">{file.owner}</span>
-                </MetaRow>
-                <MetaRow label="Visibility">
+                </MetaRow> */}
+              {/* <MetaRow label="Visibility">
                   {canEdit ? (
                     <VisibilitySelect
                       value={file.visibility}
@@ -177,14 +224,14 @@ export function FileDetailsPanel({
                   ) : (
                     <VisibilityBadge visibility={file.visibility} />
                   )}
-                </MetaRow>
-                <MetaRow label="Uploaded">
+                </MetaRow> */}
+              {/* <MetaRow label="Uploaded">
                   <span className="text-sm text-gray-600">{file.uploadedAt}</span>
                 </MetaRow>
                 <MetaRow label="Last modified">
                   <span className="text-sm text-vaultly-ink-soft">{file.modifiedAt}</span>
-                </MetaRow>
-              </div>
+                </MetaRow> */}
+              {/* </div> */}
               <div className="grid grid-cols-2 gap-2">
                 <Button variant="secondary" onClick={onDownload} disabled={isBusy}>
                   <DownloadIcon className="h-4 w-4" />
@@ -228,24 +275,22 @@ export function FileDetailsPanel({
                   </>
                 ) : null}
               </div>
-              <button
-                type="button"
-                onClick={async () => {
-                  await navigator.clipboard.writeText(file.id);
-                }}
-                className="inline-flex items-center justify-center gap-2 text-xs text-vaultly-muted transition-colors hover:text-vaultly-accent"
-              >
-                <CopyIcon className="h-3.5 w-3.5" />
-                Copy file ID
-              </button>
+
             </motion.div>
           </motion.aside>
           <SharePopover
             isOpen={isShareOpen}
             fileName={file.name}
             fileId={file.id}
+            ownerName={file.owner}
             visibility={file.visibility}
             onClose={onCloseShare}
+            onVisibilityChange={async (visibility) => {
+              const didSave: boolean = await handleUpdateFile({ visibility });
+              if (!didSave) {
+                throw new Error('Could not update access.');
+              }
+            }}
           />
           <RenameFileDialog
             isOpen={isRenameOpen}

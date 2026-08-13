@@ -2,7 +2,7 @@ import type { VaultFile } from '@/lib/vault-file';
 
 export type VaultView =
   | 'home'
-  | 'my-files'
+  | 'my-vault'
   | 'recent'
   | 'shared-with-me'
   | 'starred'
@@ -50,9 +50,9 @@ export function getVaultViewCopy(view: VaultView): VaultViewCopy {
       emptyMessage: 'Deleted files will stay here until you remove them forever.',
     };
   }
-  if (view === 'my-files') {
+  if (view === 'my-vault') {
     return {
-      title: 'My files',
+      title: 'My Vault',
       subtitle: 'Everything stored in your vault',
       emptyTitle: 'No files yet',
       emptyMessage: 'Upload your first file to get started.',
@@ -94,5 +94,5 @@ export function shouldShowStorageCards(view: VaultView): boolean {
 }
 
 export function shouldShowFolderCards(view: VaultView): boolean {
-  return view === 'my-files';
+  return view === 'my-vault';
 }

@@ -32,6 +32,25 @@ type LoadState =
   | { status: 'missing' }
   | { status: 'error'; message: string };
 
+function isVideoFile(file: SharedFileDto): boolean {
+  const mime: string = (file.mimeLabel || '').toLowerCase();
+  if (mime.includes('video')) {
+    return true;
+  }
+  const name: string = (file.name || '').toLowerCase();
+  return (
+    name.endsWith('.mp4') ||
+    name.endsWith('.mov') ||
+    name.endsWith('.webm') ||
+    name.endsWith('.mkv') ||
+    name.endsWith('.m4v')
+  );
+}
+
+function canPreviewFile(file: SharedFileDto): boolean {
+  return file.type === 'image' || file.type === 'pdf' || isVideoFile(file);
+}
+
 function buildLandingAuthHref(mode: 'login' | 'register', fileId: string): string {
   const nextPath: string = encodeURIComponent(`/share/${fileId}`);
   return `/?auth=${mode}&next=${nextPath}`;
@@ -70,26 +89,19 @@ export function ShareFileView({
 
         let previewUrl: string | null = null;
 
-        const canPreview =
-          file.type === 'image' || file.type === 'pdf';
-
-        if (canPreview) {
-          const response = await fetch(
-            getFileContentUrl(fileId),
-            {
-              credentials: 'include',
-            },
-          );
+        if (canPreviewFile(file)) {
+          const response = await fetch(getFileContentUrl(fileId), {
+            credentials: 'include',
+          });
 
           if (response.ok) {
             const blob = await response.blob();
-
             const typedBlob =
               file.type === 'pdf'
-                ? new Blob([blob], {
-                  type: 'application/pdf',
-                })
-                : blob;
+                ? new Blob([blob], { type: 'application/pdf' })
+                : isVideoFile(file) && !blob.type.startsWith('video/')
+                  ? new Blob([blob], { type: 'video/mp4' })
+                  : blob;
 
             previewUrl = URL.createObjectURL(typedBlob);
             previewUrlRef.current = previewUrl;
@@ -175,7 +187,7 @@ export function ShareFileView({
                 href="/home"
                 className="rounded-md border border-vaultly-ink bg-white px-5 py-3 text-lg font-semibold text-vaultly-ink transition-colors hover:bg-vaultly-surface-muted"
               >
-                My files
+                My Vault
               </Link>
               <Link
                 href="/home"
@@ -339,13 +351,25 @@ function ShareFileContent({
 
       {/* Preview */}
       <div className="overflow-hidden rounded-lg border border-[#e3e3e0] bg-white">
-        <div className="flex min-h-[500px] items-center justify-center bg-[#f7f7f5] p-3 sm:p-6">
+        <div className="flex min-h-[500px] items-center justify-center bg-[#f7f7f5]">
           {file.type === 'image' && previewUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={previewUrl}
               alt={file.name}
               className="max-h-[75vh] max-w-full rounded-md object-contain shadow-[0_1px_3px_rgba(0,0,0,0.08)]"
             />
+          ) : null}
+
+          {isVideoFile(file) && previewUrl ? (
+            <video
+              src={previewUrl}
+              controls
+              playsInline
+              className="w-full g-black shadow-[0_1px_3px_rgba(0,0,0,0.08)]"
+            >
+              Your browser does not support video playback.
+            </video>
           ) : null}
 
           {file.type === 'pdf' && previewUrl ? (
@@ -356,17 +380,14 @@ function ShareFileContent({
             />
           ) : null}
 
-          {(file.type === 'image' ||
-            file.type === 'pdf') &&
-            !previewUrl ? (
+          {canPreviewFile(file) && !previewUrl ? (
             <EmptyPreview
               title="Preview unavailable"
               message="The file could not be previewed. Download it to open the original file."
             />
           ) : null}
 
-          {file.type !== 'image' &&
-            file.type !== 'pdf' ? (
+          {!canPreviewFile(file) ? (
             <EmptyPreview
               title="No preview available"
               message="This file type can't be previewed in the browser."

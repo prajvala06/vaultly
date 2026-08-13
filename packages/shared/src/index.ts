@@ -54,4 +54,6 @@ export {
   type UpdateFileResponse,
   type UploadFileResponse,
   type VaultFileDto,
+  type FileShareDto,
+  type ListFileSharesResponse,
 } from './files.js';

@@ -1,0 +1,37 @@
+# Zerops build & deploy config for Vaultly API
+# Service hostname in Zerops must match `setup` below (default: vaultly).
+# Docs: https://docs.zerops.io/nodejs/how-to/build-pipeline
+
+zerops:
+  - setup: vaultly
+    build:
+      base: nodejs@22
+      buildCommands:
+        - npm ci
+        - npm run build:api
+        - npx prisma migrate deploy --schema=prisma/schema.prisma
+      deployFiles:
+        - apps/api/dist
+        - apps/api/package.json
+        - packages/shared/dist
+        - packages/shared/package.json
+        - package.json
+        - package-lock.json
+        - node_modules
+        - prisma
+      cache:
+        - node_modules
+    run:
+      base: nodejs@22
+      ports:
+        - port: 4000
+          httpSupport: true
+      envVariables:
+        NODE_ENV: production
+        PORT: "4000"
+        API_HOST: 0.0.0.0
+      start: node apps/api/dist/index.js
+      healthCheck:
+        httpGet:
+          port: 4000
+          path: /health

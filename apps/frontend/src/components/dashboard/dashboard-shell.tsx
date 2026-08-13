@@ -24,7 +24,7 @@ import Image from 'next/image';
 type ViewMode = 'list' | 'grid';
 
 type DashboardShellProps = {
-  view: Exclude<VaultView, 'home' | 'my-files'>;
+  view: Exclude<VaultView, 'home' | 'my-vault'>;
 };
 
 export function DashboardShell({ view }: DashboardShellProps): React.ReactElement {
@@ -38,7 +38,7 @@ export function DashboardShell({ view }: DashboardShellProps): React.ReactElemen
     setSearchQuery,
     setSelectedFileId,
   } = useVaultFiles(filesScope);
-  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [fileFilter, setFileFilter] = useState<FileFilter>('all');
   const [fileSort, setFileSort] = useState<FileSort>('modified-desc');
   const viewCopy = getVaultViewCopy(view);

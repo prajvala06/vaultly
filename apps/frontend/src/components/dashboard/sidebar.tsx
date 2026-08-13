@@ -8,6 +8,7 @@ import {
   ClockIcon,
   CloseIcon,
   FilesIcon,
+  FolderVaultIcon,
   HomeIcon,
   PlusIcon,
   StarIcon,
@@ -41,10 +42,9 @@ type SidebarBodyProps = {
 
 const PRIMARY_NAV: readonly NavItem[] = [
   { label: 'Home', icon: <HomeIcon className="h-5 w-5 md:h-6 md:w-6" />, path: '/home' },
-  { label: 'My Files', icon: <FilesIcon className="h-5 w-5 md:h-6 md:w-6" />, path: '/my-files' },
+  { label: 'My Vault', icon: <FolderVaultIcon className="h-5 w-5 md:h-6 md:w-6" />, path: '/my-vault' },
   { label: 'Recent', icon: <ClockIcon className="h-5 w-5 md:h-6 md:w-6" />, path: '/recent' },
   { label: 'Shared with me', icon: <UsersIcon className="h-5 w-5 md:h-6 md:w-6" />, path: '/shared-with-me' },
-  { label: 'Starred', icon: <StarIcon className="h-5 w-5 md:h-6 md:w-6" />, path: '/starred' },
   { label: 'Trash', icon: <TrashIcon className="h-5 w-5 md:h-6 md:w-6" />, path: '/trash' },
 ];
 

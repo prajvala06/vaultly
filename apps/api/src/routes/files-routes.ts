@@ -14,6 +14,7 @@ import {
 import {
   deleteUserFile,
   getSharedFile,
+  listFileShares,
   listFilesSharedWithUser,
   listUserFiles,
   restoreUserFile,
@@ -187,6 +188,20 @@ filesRouter.patch('/:fileId', requireAuth, async (req, res, next) => {
     if (error instanceof ZodError) {
       return next(mapZodError(error));
     }
+    return next(error);
+  }
+});
+
+filesRouter.get('/:fileId/shares', requireAuth, async (req, res, next) => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    const fileId: string = readRouteParam(req.params.fileId);
+    const result = await listFileShares({
+      fileId,
+      ownerId: authReq.auth.sub,
+    });
+    return sendSuccess(res, result);
+  } catch (error) {
     return next(error);
   }
 });

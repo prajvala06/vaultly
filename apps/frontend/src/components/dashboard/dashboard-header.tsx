@@ -109,7 +109,7 @@ export function DashboardHeader({
               aria-label="Open profile menu"
               aria-expanded={isProfileOpen}
               onClick={() => setIsProfileOpen((current) => !current)}
-              className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-gradient-to-br from-orange-400 to-pink-500 text-xs font-bold text-white"
+              className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-gradient-to-br from-gray-900 to-gray-900 text-xs font-bold text-white"
             >
               {initials}
             </button>
@@ -123,7 +123,7 @@ export function DashboardHeader({
                   transition={{ duration: 0.16, ease: 'easeOut' }}
                 >
                   <div className="mb-3 flex items-center gap-3 px-1 py-1">
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-orange-400 to-pink-500 text-xs font-bold text-white">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-gray-800 to-gray-900 text-xs font-bold text-white">
                       {initials}
                     </span>
                     <div className="min-w-0">

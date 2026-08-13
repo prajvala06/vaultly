@@ -1,6 +1,7 @@
 import type { File as DbFile } from '@prisma/client';
 import type {
   FileVisibility,
+  ListFileSharesResponse,
   ListFilesResponse,
   ListSharedWithMeResponse,
   SharedFileDto,
@@ -96,6 +97,43 @@ export async function listFilesSharedWithUser(userId: string): Promise<ListShare
   });
   return {
     files: shares.map((share) => mapFileToDto(share.file)),
+  };
+}
+
+export async function listFileShares(input: {
+  fileId: string;
+  ownerId: string;
+}): Promise<ListFileSharesResponse> {
+  const file = await prisma.file.findFirst({
+    where: {
+      id: input.fileId,
+      userId: input.ownerId,
+      deletedAt: null,
+    },
+    select: { id: true },
+  });
+  if (!file) {
+    throw new HttpError(404, 'FILE_NOT_FOUND', 'File not found.');
+  }
+  const shares = await prisma.fileShare.findMany({
+    where: { fileId: input.fileId },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      },
+    },
+    orderBy: { createdAt: 'asc' },
+  });
+  return {
+    shares: shares.map((share) => ({
+      userId: share.user.id,
+      name: share.user.name,
+      email: share.user.email,
+    })),
   };
 }
 

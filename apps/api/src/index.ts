@@ -71,8 +71,8 @@ app.use(errorHandler);
 export default app;
 
 if (!process.env.VERCEL) {
-  app.listen(env.apiPort, () => {
-    console.log(`Vaultly API listening on port ${env.apiPort}`);
+  app.listen(env.apiPort, env.apiHost, () => {
+    console.log(`Vaultly API listening on ${env.apiHost}:${env.apiPort}`);
     console.log(`CORS allowed origins: ${allowedOrigins.join(', ')}`);
     console.log(`Cookie secure=${env.cookieSecure}, sameSite=${env.cookieSameSite}`);
   });

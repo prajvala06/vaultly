@@ -24,7 +24,9 @@ import {
   resolveFolderFromQuery,
 } from '@/lib/folder-selection';
 import type { VaultFile } from '@/lib/vault-file';
+import type { VaultFolderDto } from '@vaultly/shared';
 import Image from 'next/image';
+import { getFileContentUrl } from '@/lib/api-client';
 
 type ViewMode = 'list' | 'grid';
 
@@ -69,10 +71,10 @@ export function MyFilesDashboard(): React.ReactElement {
     setSearchQuery,
     setSelectedFileId,
   } = useVaultFiles();
-  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [fileFilter, setFileFilter] = useState<FileFilter>('all');
   const [fileSort, setFileSort] = useState<FileSort>('modified-desc');
-  const viewCopy = getVaultViewCopy('my-files');
+  const viewCopy = getVaultViewCopy('my-vault');
 
   return (
     <VaultChrome
@@ -168,16 +170,16 @@ function MyFilesDashboardContent({
   function handleFolderSelect(folderId: string): void {
     if(folderId === activeFolderId) {
       setActiveFolderId('all');
-       router.replace('/my-files');
+       router.replace('/my-vault');
        return;
     }
     setActiveFolderId(folderId);
     const queryValue: string = buildFolderQueryValue(folderId, folders);
     if (!queryValue) {
-      router.replace('/my-files');
+      router.replace('/my-vault');
       return;
     }
-    router.replace(`/my-files?folder=${encodeURIComponent(queryValue)}`);
+    router.replace(`/my-vault?folder=${encodeURIComponent(queryValue)}`);
   }
 
   const uploadFolderId: string | null = resolvedFolder.uploadFolderId;
@@ -190,14 +192,15 @@ function MyFilesDashboardContent({
     return applyFileSort(applyFileFilter(searchedFiles, fileFilter), fileSort);
   }, [files, activeFolderId, searchQuery, fileFilter, fileSort]);
 
+  const displayFolders = useMemo(() => {
+    if (activeFolderId !== 'all') return [];
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return folders;
+    return folders.filter((folder) => folder.name.toLowerCase().includes(query));
+  }, [activeFolderId, folders, searchQuery]);
+
   return (
     <>
-      <FolderCards
-        files={files}
-        customFolders={folders}
-        activeFolderId={activeFolderId}
-        onFolderSelect={handleFolderSelect}
-      />
       <FileToolbar
         searchQuery={searchQuery}
         onSearchChange={onSearchChange}
@@ -213,6 +216,8 @@ function MyFilesDashboardContent({
       ) : viewMode === 'list' ? (
         <MyFilesTable
           files={filteredFiles}
+          folders={displayFolders}
+          onSelectFolder={handleFolderSelect}
           selectedFileId={selectedFileId}
           onSelectFile={onSelectFile}
           uploadFolderId={uploadFolderId}
@@ -222,6 +227,8 @@ function MyFilesDashboardContent({
       ) : (
         <FileGrid
           files={filteredFiles}
+          folders={displayFolders}
+          onSelectFolder={handleFolderSelect}
           selectedFileId={selectedFileId}
           onSelectFile={onSelectFile}
           emptyTitle={emptyTitle}
@@ -234,6 +241,8 @@ function MyFilesDashboardContent({
 
 type MyFilesTableProps = {
   files: readonly VaultFile[];
+  folders: readonly VaultFolderDto[];
+  onSelectFolder: (folderId: string) => void;
   selectedFileId: string | null;
   onSelectFile: (fileId: string) => void;
   uploadFolderId: string | null;
@@ -243,6 +252,8 @@ type MyFilesTableProps = {
 
 function MyFilesTable({
   files,
+  folders,
+  onSelectFolder,
   selectedFileId,
   onSelectFile,
   uploadFolderId,
@@ -253,6 +264,8 @@ function MyFilesTable({
   return (
     <FileTable
       files={files}
+      folders={folders}
+      onSelectFolder={onSelectFolder}
       selectedFileId={selectedFileId}
       onSelectFile={onSelectFile}
       onUploadClick={() => openUploadPanel({ folderId: uploadFolderId })}
@@ -265,20 +278,35 @@ function MyFilesTable({
 
 type FileGridProps = {
   files: readonly VaultFile[];
+  folders: readonly VaultFolderDto[];
+  onSelectFolder: (folderId: string) => void;
   selectedFileId: string | null;
   onSelectFile: (fileId: string) => void;
   emptyTitle: string;
   emptyMessage: string;
 };
 
+function isVideoFile(file: VaultFile): boolean {
+  const mime = (file.mimeLabel || '').toLowerCase();
+  if (mime.includes('video')) return true;
+  const name = (file.name || '').toLowerCase();
+  return name.endsWith('.mp4') || name.endsWith('.mov') || name.endsWith('.webm') || name.endsWith('.mkv');
+}
+
+function isPdfFile(file: VaultFile): boolean {
+  return file.type === 'pdf' || (file.name || '').toLowerCase().endsWith('.pdf');
+}
+
 function FileGrid({
   files,
+  folders,
+  onSelectFolder,
   selectedFileId,
   onSelectFile,
   emptyTitle,
   emptyMessage,
 }: FileGridProps): React.ReactElement {
-  if (files.length === 0) {
+  if (files.length === 0 && folders.length === 0) {
     return (
       <div className="rounded-3xl border border-dashed border-vaultly-border bg-white px-6 py-16 text-center shadow-vaultly">
         <Image
@@ -294,9 +322,35 @@ function FileGrid({
   }
   return (
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      {folders.map((folder) => (
+        <button
+          key={folder.id}
+          type="button"
+          onClick={() => onSelectFolder(folder.id)}
+          className="flex flex-col overflow-hidden rounded-3xl border border-vaultly-border bg-white text-left transition-colors hover:bg-orange-50 bg-orange-50/20"
+        >
+          <div className="flex h-full w-full flex-col p-4">
+            <span className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-vaultly-teal-soft">
+              <Image
+                src="https://img.icons8.com/?size=512&id=oiCA327R8ADq&format=png"
+                alt={folder.name}
+                width={24}
+                height={24}
+                className="h-6 w-6"
+              />
+            </span>
+            <p className="truncate text-sm font-semibold text-vaultly-ink">{folder.name}</p>
+            <p className="mt-1 text-xs text-vaultly-muted">
+              {folder.fileCount === 1 ? '1 file' : `${folder.fileCount} files`}
+            </p>
+          </div>
+        </button>
+      ))}
       {files.map((file) => {
         const isSelected: boolean = file.id === selectedFileId;
         const tone = getFileTypeTone(file.type);
+        const showPreview = file.type === 'image' || isVideoFile(file) || isPdfFile(file);
+        
         return (
           <button
             key={file.id}
@@ -304,19 +358,66 @@ function FileGrid({
             onClick={() => onSelectFile(file.id)}
             className={
               isSelected
-                ? 'rounded-3xl border border-orange-200 bg-vaultly-accent-soft p-4 text-left shadow-vaultly'
-                : 'rounded-3xl border border-vaultly-border bg-white p-4 text-left transition-colors hover:bg-orange-50'
+                ? 'flex flex-col overflow-hidden rounded-3xl border border-orange-200 bg-vaultly-accent-soft text-left shadow-vaultly'
+                : 'flex flex-col overflow-hidden rounded-3xl border border-vaultly-border bg-white text-left transition-colors hover:bg-orange-50'
             }
           >
-            <span
-              className={`mb-3 flex h-10 w-10 items-center justify-center rounded-full ${tone.wrap}`}
-            >
-              <FileTypeIcon type={file.type} className="h-5 w-5" />
-            </span>
-            <p className="truncate text-sm font-semibold text-vaultly-ink">{file.name}</p>
-            <p className="mt-1 text-xs text-vaultly-muted">
-              {file.sizeLabel} · {file.modifiedLabel}
-            </p>
+            {showPreview ? (
+              <>
+                <div className="relative aspect-video w-full overflow-hidden bg-gray-100">
+                  {file.type === 'image' ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={getFileContentUrl(file.id)}
+                      alt={file.name}
+                      className="h-full w-full object-cover"
+                      loading="lazy"
+                      crossOrigin="use-credentials"
+                    />
+                  ) : isVideoFile(file) ? (
+                    <>
+                      <video
+                        src={getFileContentUrl(file.id)}
+                        className="h-full w-full object-cover"
+                        preload="metadata"
+                        crossOrigin="use-credentials"
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm">
+                          <svg className="ml-1 h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M8 5v14l11-7z" />
+                          </svg>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <iframe
+                      src={`${getFileContentUrl(file.id)}#toolbar=0&navpanes=0&scrollbar=0`}
+                      className="h-full w-full pointer-events-none"
+                      title={file.name}
+                    />
+                  )}
+                </div>
+                <div className="flex flex-1 flex-col p-4">
+                  <p className="truncate text-sm font-semibold text-vaultly-ink">{file.name}</p>
+                  <p className="mt-1 text-xs text-vaultly-muted">
+                    {file.sizeLabel} · {file.modifiedLabel}
+                  </p>
+                </div>
+              </>
+            ) : (
+              <div className="flex h-full w-full flex-col p-4">
+                <span
+                  className={`mb-3 flex h-10 w-10 items-center justify-center rounded-full ${tone.wrap}`}
+                >
+                  <FileTypeIcon type={file.type} className="h-5 w-5" />
+                </span>
+                <p className="truncate text-sm font-semibold text-vaultly-ink">{file.name}</p>
+                <p className="mt-1 text-xs text-vaultly-muted">
+                  {file.sizeLabel} · {file.modifiedLabel}
+                </p>
+              </div>
+            )}
           </button>
         );
       })}

@@ -1,4 +1,4 @@
-import type { ApiResponse } from '@vaultly/shared';
+import type { ApiResponse, ListFileSharesResponse } from '@vaultly/shared';
 import { forceClientLogout } from '@/lib/auth-session';
 
 const DEFAULT_API_URL = 'http://localhost:4000';
@@ -93,6 +93,10 @@ export async function apiRequest<T>(path: string, init: ApiRequestInit = {}): Pr
     headers,
   });
   return parseApiResponse<T>(response, skipAuthRedirect);
+}
+
+export async function getFileShares(fileId: string): Promise<ListFileSharesResponse> {
+  return apiRequest(`/api/files/${fileId}/shares`);
 }
 
 export async function apiUploadFile<T>(

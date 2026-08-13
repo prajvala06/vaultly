@@ -24,6 +24,7 @@ const configuredMaxFileSizeBytes: number = Number(readOptional('MAX_FILE_SIZE_BY
 
 export const env = {
   nodeEnv: readOptional('NODE_ENV', 'development'),
+  apiHost: readOptional('API_HOST', '0.0.0.0'),
   apiPort: Number(process.env.PORT ?? readOptional('API_PORT', '4000')),
   corsOrigin: readOptional('CORS_ORIGIN', 'http://localhost:3000'),
   jwtAccessSecret: readOptional('JWT_ACCESS_SECRET', 'dev-only-change-me-to-a-long-random-secret'),

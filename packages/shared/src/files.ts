@@ -79,3 +79,13 @@ export type UpdateFileResponse = {
   file: VaultFileDto;
   storage: StorageSummaryDto;
 };
+
+export type FileShareDto = {
+  userId: string;
+  name: string;
+  email: string;
+};
+
+export type ListFileSharesResponse = {
+  shares: FileShareDto[];
+};
