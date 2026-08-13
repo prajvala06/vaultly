@@ -14,6 +14,7 @@ type VaultFoldersContextValue = {
   folders: VaultFolderDto[];
   reloadFolders: () => Promise<void>;
   addFolder: (folder: VaultFolderDto) => void;
+  removeFolder: (folderId: string) => void;
 };
 
 const VaultFoldersContext = createContext<VaultFoldersContextValue | null>(null);
@@ -52,6 +53,10 @@ export function VaultFoldersProvider({
     setFolders((current) => [folder, ...current.filter((item) => item.id !== folder.id)]);
   }, []);
 
+  const removeFolder = useCallback((folderId: string): void => {
+    setFolders((current) => current.filter((item) => item.id !== folderId));
+  }, []);
+
   useEffect(() => {
     void reloadFolders();
   }, [reloadFolders]);
@@ -61,8 +66,9 @@ export function VaultFoldersProvider({
       folders,
       reloadFolders,
       addFolder,
+      removeFolder,
     }),
-    [addFolder, folders, reloadFolders],
+    [addFolder, folders, reloadFolders, removeFolder],
   );
 
   return <VaultFoldersContext.Provider value={value}>{children}</VaultFoldersContext.Provider>;

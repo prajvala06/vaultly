@@ -9,7 +9,6 @@ zerops:
       buildCommands:
         - npm ci
         - npm run build:api
-        - npx prisma migrate deploy --schema=prisma/schema.prisma
       deployFiles:
         - apps/api/dist
         - apps/api/package.json
@@ -30,6 +29,9 @@ zerops:
         NODE_ENV: production
         PORT: "4000"
         API_HOST: 0.0.0.0
+      # Migrations need DATABASE_URL from service secrets (available at runtime, not always at build).
+      initCommands:
+        - npx prisma migrate deploy --schema=prisma/schema.prisma
       start: node apps/api/dist/index.js
       healthCheck:
         httpGet:

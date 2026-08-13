@@ -2,16 +2,16 @@
 
 import { useMemo, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { FolderCards } from '@/components/dashboard/folder-cards';
+import { DeleteFolderDialog } from '@/components/dashboard/delete-folder-dialog';
 import { FileTable } from '@/components/dashboard/file-table';
 import { FileToolbar } from '@/components/dashboard/file-toolbar';
-import { useVaultUpload, VaultChrome } from '@/components/dashboard/vault-chrome';
+import { useVaultUpload, VaultChromeContent } from '@/components/dashboard/vault-chrome';
 import { FileTypeIcon, getFileTypeTone } from '@/components/ui/badges';
 import { Button } from '@/components/ui/button';
 import { FilesShimmerLoader } from '@/components/ui/shimmer';
-import { UploadCloudIcon } from '@/components/icons';
+import { TrashIcon, UploadCloudIcon } from '@/components/icons';
 import { useVaultFiles } from '@/hooks/use-vault-files';
-import { useVaultFolders } from '@/hooks/use-vault-folders';
+import { VaultFoldersProvider, useVaultFolders } from '@/hooks/use-vault-folders';
 import { getVaultViewCopy } from '@/lib/vault-view';
 import {
   applyFileFilter,
@@ -21,6 +21,7 @@ import {
 } from '@/lib/file-list';
 import {
   buildFolderQueryValue,
+  isSystemFolderId,
   resolveFolderFromQuery,
 } from '@/lib/folder-selection';
 import type { VaultFile } from '@/lib/vault-file';
@@ -63,21 +64,38 @@ function filterByFolder(files: readonly VaultFile[], folderId: string): readonly
 }
 
 export function MyFilesDashboard(): React.ReactElement {
+  return (
+    <VaultFoldersProvider>
+      <MyFilesDashboardInner />
+    </VaultFoldersProvider>
+  );
+}
+
+function MyFilesDashboardInner(): React.ReactElement {
+  const searchParams = useSearchParams();
+  const { folders } = useVaultFolders();
+  const folderParam: string | null = searchParams.get('folder');
+  const resolvedFolder = useMemo(
+    () => resolveFolderFromQuery(folderParam, folders),
+    [folderParam, folders],
+  );
+
   const {
     files,
     isLoading,
     searchQuery,
     selectedFileId,
+    setFiles,
     setSearchQuery,
     setSelectedFileId,
   } = useVaultFiles();
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [fileFilter, setFileFilter] = useState<FileFilter>('all');
   const [fileSort, setFileSort] = useState<FileSort>('modified-desc');
-  const viewCopy = getVaultViewCopy('my-vault');
+  const viewCopy = getVaultViewCopy('my-vault', resolvedFolder.queryValue);
 
   return (
-    <VaultChrome
+    <VaultChromeContent
       title={viewCopy.title}
       subtitle={viewCopy.subtitle}
       pageActions={() => <MyFilesUploadAction />}
@@ -89,6 +107,7 @@ export function MyFilesDashboard(): React.ReactElement {
         onSearchChange={setSearchQuery}
         selectedFileId={selectedFileId}
         onSelectFile={(fileId) => setSelectedFileId(fileId)}
+        onUpdateFiles={setFiles}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         fileFilter={fileFilter}
@@ -98,7 +117,7 @@ export function MyFilesDashboard(): React.ReactElement {
         emptyTitle={viewCopy.emptyTitle}
         emptyMessage={viewCopy.emptyMessage}
       />
-    </VaultChrome>
+    </VaultChromeContent>
   );
 }
 
@@ -109,6 +128,7 @@ type MyFilesDashboardContentProps = {
   onSearchChange: (value: string) => void;
   selectedFileId: string | null;
   onSelectFile: (fileId: string) => void;
+  onUpdateFiles: (update: VaultFile[] | ((current: VaultFile[]) => VaultFile[])) => void;
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
   fileFilter: FileFilter;
@@ -144,6 +164,7 @@ function MyFilesDashboardContent({
   onSearchChange,
   selectedFileId,
   onSelectFile,
+  onUpdateFiles,
   viewMode,
   onViewModeChange,
   fileFilter,
@@ -155,31 +176,50 @@ function MyFilesDashboardContent({
 }: MyFilesDashboardContentProps): React.ReactElement {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { folders } = useVaultFolders();
+  const { folders, removeFolder } = useVaultFolders();
   const folderParam: string | null = searchParams.get('folder');
   const resolvedFolder = useMemo(
     () => resolveFolderFromQuery(folderParam, folders),
     [folderParam, folders],
   );
   const [activeFolderId, setActiveFolderId] = useState<string>(resolvedFolder.filterId);
+  const [folderPendingDelete, setFolderPendingDelete] = useState<VaultFolderDto | null>(null);
 
   useEffect(() => {
     setActiveFolderId(resolvedFolder.filterId);
   }, [resolvedFolder.filterId]);
 
+  const activeCustomFolder = useMemo(() => {
+    if (activeFolderId === 'all' || isSystemFolderId(activeFolderId)) {
+      return null;
+    }
+    return folders.find((folder) => folder.id === activeFolderId) ?? null;
+  }, [activeFolderId, folders]);
+
   function handleFolderSelect(folderId: string): void {
-    if(folderId === activeFolderId) {
+    if (folderId === activeFolderId) {
       setActiveFolderId('all');
-       router.replace('/my-vault');
-       return;
+      router.push('/my-vault');
+      return;
     }
     setActiveFolderId(folderId);
     const queryValue: string = buildFolderQueryValue(folderId, folders);
     if (!queryValue) {
-      router.replace('/my-vault');
+      router.push('/my-vault');
       return;
     }
-    router.replace(`/my-vault?folder=${encodeURIComponent(queryValue)}`);
+    router.push(`/my-vault?folder=${encodeURIComponent(queryValue)}`);
+  }
+
+  function handleFolderDeleted(folderId: string): void {
+    removeFolder(folderId);
+    onUpdateFiles((current) =>
+      current.map((file) => (file.folderId === folderId ? { ...file, folderId: null } : file)),
+    );
+    if (activeFolderId === folderId) {
+      setActiveFolderId('all');
+      router.push('/my-vault');
+    }
   }
 
   const uploadFolderId: string | null = resolvedFolder.uploadFolderId;
@@ -211,6 +251,18 @@ function MyFilesDashboardContent({
         fileSort={fileSort}
         onFileSortChange={onFileSortChange}
       />
+      {activeCustomFolder ? (
+        <div className="mb-3 flex justify-end">
+          <Button
+            variant="danger"
+            className="rounded-xl px-3 py-2"
+            onClick={() => setFolderPendingDelete(activeCustomFolder)}
+          >
+            <TrashIcon className="h-4 w-4" />
+            Delete folder
+          </Button>
+        </div>
+      ) : null}
       {isLoading ? (
         <FilesShimmerLoader viewMode={viewMode} />
       ) : viewMode === 'list' ? (
@@ -218,6 +270,7 @@ function MyFilesDashboardContent({
           files={filteredFiles}
           folders={displayFolders}
           onSelectFolder={handleFolderSelect}
+          onDeleteFolder={setFolderPendingDelete}
           selectedFileId={selectedFileId}
           onSelectFile={onSelectFile}
           uploadFolderId={uploadFolderId}
@@ -229,12 +282,19 @@ function MyFilesDashboardContent({
           files={filteredFiles}
           folders={displayFolders}
           onSelectFolder={handleFolderSelect}
+          onDeleteFolder={setFolderPendingDelete}
           selectedFileId={selectedFileId}
           onSelectFile={onSelectFile}
           emptyTitle={emptyTitle}
           emptyMessage={emptyMessage}
         />
       )}
+      <DeleteFolderDialog
+        folder={folderPendingDelete}
+        isOpen={folderPendingDelete !== null}
+        onClose={() => setFolderPendingDelete(null)}
+        onDeleted={handleFolderDeleted}
+      />
     </>
   );
 }
@@ -243,6 +303,7 @@ type MyFilesTableProps = {
   files: readonly VaultFile[];
   folders: readonly VaultFolderDto[];
   onSelectFolder: (folderId: string) => void;
+  onDeleteFolder: (folder: VaultFolderDto) => void;
   selectedFileId: string | null;
   onSelectFile: (fileId: string) => void;
   uploadFolderId: string | null;
@@ -254,6 +315,7 @@ function MyFilesTable({
   files,
   folders,
   onSelectFolder,
+  onDeleteFolder,
   selectedFileId,
   onSelectFile,
   uploadFolderId,
@@ -266,6 +328,7 @@ function MyFilesTable({
       files={files}
       folders={folders}
       onSelectFolder={onSelectFolder}
+      onDeleteFolder={onDeleteFolder}
       selectedFileId={selectedFileId}
       onSelectFile={onSelectFile}
       onUploadClick={() => openUploadPanel({ folderId: uploadFolderId })}
@@ -280,6 +343,7 @@ type FileGridProps = {
   files: readonly VaultFile[];
   folders: readonly VaultFolderDto[];
   onSelectFolder: (folderId: string) => void;
+  onDeleteFolder: (folder: VaultFolderDto) => void;
   selectedFileId: string | null;
   onSelectFile: (fileId: string) => void;
   emptyTitle: string;
@@ -301,6 +365,7 @@ function FileGrid({
   files,
   folders,
   onSelectFolder,
+  onDeleteFolder,
   selectedFileId,
   onSelectFile,
   emptyTitle,
@@ -308,49 +373,62 @@ function FileGrid({
 }: FileGridProps): React.ReactElement {
   if (files.length === 0 && folders.length === 0) {
     return (
-      <div className="rounded-3xl border border-dashed border-vaultly-border bg-white px-6 py-16 text-center shadow-vaultly">
+      <div className="flex flex-col pt-20 justify-center items-center">
         <Image
           src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRnIngcfrKBeDgxUOATcvIMseCRJyYA8XQ8Blbh-9sx0nT4x6hDJDX7ziY&s=10"
           width={200}
           height={200}
           alt={emptyTitle}
         />
-        <h3 className="text-base font-semibold text-vaultly-ink">{emptyTitle}</h3>
-        <p className="mt-1 text-sm text-vaultly-muted">{emptyMessage}</p>
+        <h3 className="text-base md:text-lg lg:text-xl font-semibold text-vaultly-ink">{emptyTitle}</h3>
+        <p className="mt-1 text-sm md:text-lg lg:text-xl text-vaultly-muted">{emptyMessage}</p>
       </div>
     );
   }
   return (
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
       {folders.map((folder) => (
-        <button
+        <div
           key={folder.id}
-          type="button"
-          onClick={() => onSelectFolder(folder.id)}
-          className="flex flex-col overflow-hidden rounded-3xl border border-vaultly-border bg-white text-left transition-colors hover:bg-orange-50 bg-orange-50/20"
+          className="relative flex flex-col overflow-hidden rounded-3xl border border-gray-200 bg-white text-left transition-colors hover:bg-gray-200"
         >
-          <div className="flex h-full w-full flex-col p-4">
-            <span className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-vaultly-teal-soft">
-              <Image
-                src="https://img.icons8.com/?size=512&id=oiCA327R8ADq&format=png"
-                alt={folder.name}
-                width={24}
-                height={24}
-                className="h-6 w-6"
-              />
+          <button
+            type="button"
+            aria-label={`Delete folder ${folder.name}`}
+            className="absolute right-3 top-3 z-10 rounded-full bg-white/90 p-2 text-vaultly-muted shadow-sm transition-colors hover:bg-rose-50 hover:text-vaultly-danger"
+            onClick={(event) => {
+              event.stopPropagation();
+              onDeleteFolder(folder);
+            }}
+          >
+            <TrashIcon className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => onSelectFolder(folder.id)}
+            className="flex h-full w-full cursor-pointer flex-col justify-center items-center pb-4"
+          >
+            <Image
+              src="https://img.icons8.com/?size=512&id=oiCA327R8ADq&format=png"
+              alt={folder.name}
+              width={50}
+              height={50}
+              className="w-20 h-20 md:w-32 md:h-32 lg:w-42 lg:h-42"
+            />
+            <span className="flex items-center">
+              <p className="truncate text-base md:text-lg lg:text-xl font-semibold text-vaultly-ink">{folder.name}</p>
+              <p className="ml-2 text-base md:text-lg lg:text-xl text-vaultly-muted">
+                ({folder.fileCount === 1 ? '1 file' : `${folder.fileCount} files`})
+              </p>
             </span>
-            <p className="truncate text-sm font-semibold text-vaultly-ink">{folder.name}</p>
-            <p className="mt-1 text-xs text-vaultly-muted">
-              {folder.fileCount === 1 ? '1 file' : `${folder.fileCount} files`}
-            </p>
-          </div>
-        </button>
+          </button>
+        </div>
       ))}
       {files.map((file) => {
         const isSelected: boolean = file.id === selectedFileId;
         const tone = getFileTypeTone(file.type);
         const showPreview = file.type === 'image' || isVideoFile(file) || isPdfFile(file);
-        
+
         return (
           <button
             key={file.id}
@@ -358,8 +436,8 @@ function FileGrid({
             onClick={() => onSelectFile(file.id)}
             className={
               isSelected
-                ? 'flex flex-col overflow-hidden rounded-3xl border border-orange-200 bg-vaultly-accent-soft text-left shadow-vaultly'
-                : 'flex flex-col overflow-hidden rounded-3xl border border-vaultly-border bg-white text-left transition-colors hover:bg-orange-50'
+                ? 'flex flex-col overflow-hidden rounded-3xl border border-orange-200 bg-gray-200 text-left shadow-vaultly'
+                : 'flex flex-col overflow-hidden rounded-3xl border border-vaultly-border bg-white text-left transition-colors hover:bg-gray-200 cursor-pointer'
             }
           >
             {showPreview ? (

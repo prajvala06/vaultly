@@ -33,6 +33,8 @@ type ActiveUpload = {
   status: 'uploading' | 'done' | 'error';
 };
 
+const MAX_FILE_SIZE_BYTES: number = 100 * 1024 * 1024;
+
 function formatBytes(bytes: number): string {
   if (bytes < 1024) {
     return `${bytes} B`;
@@ -83,9 +85,8 @@ export function UploadPanel({
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
-  const [activeUpload, setActiveUpload] = useState<ActiveUpload | null>(null);
+  const [activeUploads, setActiveUploads] = useState<Record<string, ActiveUpload>>({});
   const [isUploading, setIsUploading] = useState<boolean>(false);
-  const overlayTone = getFileTypeTone(activeUpload?.type ?? 'other');
 
   useEffect(() => {
     if (!isOpen) {
@@ -109,8 +110,26 @@ export function UploadPanel({
     if (!fileList || fileList.length === 0) {
       return;
     }
-    const nextFiles: PendingFile[] = Array.from(fileList).map(createPendingFile);
-    setPendingFiles((current) => [...current, ...nextFiles]);
+    const selectedFiles: File[] = Array.from(fileList);
+    const oversizedFiles: File[] = selectedFiles.filter((file) => file.size > MAX_FILE_SIZE_BYTES);
+    const allowedFiles: File[] = selectedFiles.filter((file) => file.size <= MAX_FILE_SIZE_BYTES);
+    if (oversizedFiles.length === 1) {
+      pushToast({
+        tone: 'error',
+        title: 'File too large',
+        message: `"${oversizedFiles[0].name}" exceeds the 100 MB limit.`,
+      });
+    } else if (oversizedFiles.length > 1) {
+      pushToast({
+        tone: 'error',
+        title: 'Files too large',
+        message: `${oversizedFiles.length} files exceed the 100 MB limit and were not added.`,
+      });
+    }
+    if (allowedFiles.length > 0) {
+      const nextFiles: PendingFile[] = allowedFiles.map(createPendingFile);
+      setPendingFiles((current) => [...current, ...nextFiles]);
+    }
     if (inputRef.current) {
       inputRef.current.value = '';
     }
@@ -125,9 +144,9 @@ export function UploadPanel({
       current.map((item) =>
         item.id === id
           ? {
-              ...item,
-              visibility: item.visibility === 'PUBLIC' ? 'PRIVATE' : 'PUBLIC',
-            }
+            ...item,
+            visibility: item.visibility === 'PUBLIC' ? 'PRIVATE' : 'PUBLIC',
+          }
           : item,
       ),
     );
@@ -138,9 +157,9 @@ export function UploadPanel({
       current.map((item): PendingFile =>
         item.id === id
           ? {
-              ...item,
-              visibility: access,
-            }
+            ...item,
+            visibility: access,
+          }
           : item,
       ),
     );
@@ -150,70 +169,88 @@ export function UploadPanel({
     setIsUploading(true);
     onClose();
     let successCount = 0;
+
+    const initialUploads: Record<string, ActiveUpload> = {};
+    for (const pending of queue) {
+      initialUploads[pending.id] = {
+        name: pending.file.name,
+        sizeBytes: pending.file.size,
+        progress: 0,
+        type: pending.type,
+        status: 'uploading',
+      };
+    }
+    setActiveUploads(initialUploads);
+
     try {
-      for (const pending of queue) {
-        setActiveUpload({
-          name: pending.file.name,
-          sizeBytes: pending.file.size,
-          progress: 0,
-          type: pending.type,
-          status: 'uploading',
-        });
-        try {
-          const result = await apiUploadFile<UploadFileResponse>(
-            '/api/files/upload',
-            pending.file,
-            {
-              visibility: pending.visibility,
-              folderId: targetFolderId,
-              onProgress: (percent) => {
-                setActiveUpload((current) =>
-                  current
-                    ? {
-                        ...current,
-                        progress: percent,
-                      }
-                    : current,
-                );
-              },
-            },
-          );
-          onUploaded(result.file, result.storage);
-          successCount += 1;
-          setActiveUpload((current) =>
-            current
-              ? {
-                  ...current,
-                  progress: 100,
-                  status: 'done',
-                }
-              : current,
-          );
-        } catch (error) {
-          if (isUnauthenticatedError(error)) {
+      await Promise.all(
+        queue.map(async (pending) => {
+          if (pending.file.size > MAX_FILE_SIZE_BYTES) {
             pushToast({
               tone: 'error',
-              title: 'Session expired',
-              message: 'Please sign in again to continue.',
+              title: 'File too large',
+              message: `"${pending.file.name}" exceeds the 100 MB limit.`,
             });
-            forceClientLogout('/');
+            setActiveUploads((current) => {
+              const nextUploads: Record<string, ActiveUpload> = { ...current };
+              delete nextUploads[pending.id];
+              return nextUploads;
+            });
             return;
           }
-          const message: string =
-            error instanceof ApiClientError
-              ? error.message
-              : 'Could not upload the file. Please try again.';
-          pushToast({ tone: 'error', message });
-          setActiveUpload((current) =>
-            current
-              ? {
-                  ...current,
-                  status: 'error',
-                }
-              : current,
-          );
-        }
-      }
+          try {
+            const result = await apiUploadFile<UploadFileResponse>(
+              '/api/files/upload',
+              pending.file,
+              {
+                visibility: pending.visibility,
+                folderId: targetFolderId,
+                onProgress: (percent) => {
+                  setActiveUploads((current) => ({
+                    ...current,
+                    [pending.id]: {
+                      ...current[pending.id],
+                      progress: percent,
+                    },
+                  }));
+                },
+              },
+            );
+            onUploaded(result.file, result.storage);
+            successCount += 1;
+            setActiveUploads((current) => ({
+              ...current,
+              [pending.id]: {
+                ...current[pending.id],
+                progress: 100,
+                status: 'done',
+              },
+            }));
+          } catch (error) {
+            if (isUnauthenticatedError(error)) {
+              pushToast({
+                tone: 'error',
+                title: 'Session expired',
+                message: 'Please sign in again to continue.',
+              });
+              forceClientLogout('/');
+              return;
+            }
+            const message: string =
+              error instanceof ApiClientError
+                ? error.message
+                : `Could not upload ${pending.file.name}.`;
+            pushToast({ tone: 'error', message });
+            setActiveUploads((current) => ({
+              ...current,
+              [pending.id]: {
+                ...current[pending.id],
+                status: 'error',
+              },
+            }));
+          }
+        })
+      );
       if (successCount > 0) {
         pushToast({
           tone: 'success',
@@ -227,8 +264,8 @@ export function UploadPanel({
     } finally {
       setIsUploading(false);
       window.setTimeout(() => {
-        setActiveUpload(null);
-      }, 1800);
+        setActiveUploads({});
+      }, 2500);
       setPendingFiles([]);
     }
   }
@@ -324,11 +361,10 @@ export function UploadPanel({
                     setIsDragging(false);
                     addFiles(event.dataTransfer.files);
                   }}
-                  className={`flex w-full flex-col items-center justify-center gap-2 rounded-3xl border-2 border-dashed px-4 py-10 text-center transition-colors ${
-                    isDragging
+                  className={`flex w-full flex-col items-center justify-center gap-2 rounded-3xl border-2 border-dashed px-4 py-10 text-center transition-colors ${isDragging
                       ? 'border-gray-400 bg-gray-200'
                       : 'border-gray-300 bg-gray-100 hover:bg-gray-200'
-                  }`}
+                    }`}
                 >
                   <span className="flex h-14 w-14 items-center justify-center text-gray-400">
                     <UploadCloudIcon className="h-12 w-12" />
@@ -381,36 +417,12 @@ export function UploadPanel({
                                   </p>
                                   {isPublic ? (
                                     <p className="mt-0.5 text-sm leading-snug text-gray-600">
-                                      Anyone can view this file.
+                                      Anyone with link can access.
                                     </p>
                                   ) : (
-                                    <label className="mt-1 block">
-                                      <span className="sr-only">Who can access</span>
-                                      <select
-                                        value={
-                                          pending.visibility === 'PUBLIC'
-                                            ? 'PRIVATE'
-                                            : pending.visibility
-                                        }
-                                        onChange={(event) => {
-                                          const value: string = event.target.value;
-                                          if (value === 'LINK' || value === 'SHARED') {
-                                            setPrivateAccess(pending.id, value as FileVisibility);
-                                            return;
-                                          }
-                                          setPrivateAccess(pending.id, 'PRIVATE');
-                                        }}
-                                        className="mt-0.5 w-auto cursor-pointer appearance-none rounded-lg border border-gray-200 bg-white bg-size-[12px] bg-position-[right_8px_center] bg-no-repeat py-1.5 pr-7 pl-2 text-sm leading-snug text-gray-700 outline-none transition-colors hover:border-gray-300 focus:border-gray-400"
-                                        style={{
-                                          backgroundImage:
-                                            "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3E%3C/svg%3E\")",
-                                        }}
-                                      >
-                                        <option value="PRIVATE">Only me</option>
-                                        <option value="LINK">People with the link</option>
-                                        <option value="SHARED">People you add</option>
-                                      </select>
-                                    </label>
+                                    <p className="mt-0.5 text-sm leading-snug text-gray-600">
+                                       Only you can access.
+                                    </p>
                                   )}
                                 </div>
                                 <button
@@ -419,21 +431,18 @@ export function UploadPanel({
                                   aria-checked={isPublic}
                                   aria-label={isPublic ? 'Public' : 'Private'}
                                   onClick={() => toggleVisibility(pending.id)}
-                                  className={`relative inline-flex h-8 w-23 shrink-0 items-center rounded-full transition-colors ${
-                                    isPublic ? 'bg-green-500' : 'bg-gray-500'
-                                  }`}
+                                  className={`relative inline-flex h-8 w-23 shrink-0 items-center rounded-full transition-colors ${isPublic ? 'bg-green-500' : 'bg-gray-500'
+                                    }`}
                                 >
                                   <span
-                                    className={`pointer-events-none absolute inset-y-0 flex items-center text-[10px] font-bold tracking-wide text-white uppercase transition-all ${
-                                      isPublic ? 'left-2.5' : 'right-2.5'
-                                    }`}
+                                    className={`pointer-events-none absolute inset-y-0 flex items-center text-[10px] font-bold tracking-wide text-white uppercase transition-all ${isPublic ? 'left-2.5' : 'right-2.5'
+                                      }`}
                                   >
                                     {isPublic ? 'Public' : 'Private'}
                                   </span>
                                   <span
-                                    className={`absolute top-1 left-1 h-6 w-6 rounded-full bg-white shadow-sm transition-transform ${
-                                      isPublic ? 'translate-x-15' : 'translate-x-0'
-                                    }`}
+                                    className={`absolute top-1 left-1 h-6 w-6 rounded-full bg-white shadow-sm transition-transform ${isPublic ? 'translate-x-15' : 'translate-x-0'
+                                      }`}
                                   />
                                 </button>
                               </div>
@@ -471,60 +480,64 @@ export function UploadPanel({
         ) : null}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {activeUpload ? (
-          <motion.div
-            className="pointer-events-none fixed right-4 bottom-4 z-[90] w-[min(100vw-2rem,360px)]"
-            initial={{ opacity: 0, y: 16, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 10, scale: 0.98 }}
-            transition={{ type: 'spring', stiffness: 420, damping: 32 }}
-          >
-            <div className="pointer-events-auto rounded-3xl border border-gray-200 bg-gray-50 p-4 shadow-[0_16px_40px_rgba(0,0,0,0.12)]">
-              <div className="flex items-start gap-3">
-                <span
-                  className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${overlayTone.wrap}`}
-                >
-                  <FileTypeIcon type={activeUpload.type} className="h-[18px] w-[18px]" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-vaultly-ink">
-                    {activeUpload.name}
-                  </p>
-                  <p className="mt-0.5 text-xs text-vaultly-muted">
-                    {formatBytes(
-                      Math.round((activeUpload.sizeBytes * activeUpload.progress) / 100),
-                    )}{' '}
-                    / {formatBytes(activeUpload.sizeBytes)}
-                  </p>
-                  <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white">
-                    <div
-                      className={`h-full w-0 max-w-full rounded-full transition-[width] duration-200 ${
-                        activeUpload.status === 'error'
-                          ? 'bg-rose-400'
-                          : activeUpload.status === 'done'
-                            ? 'bg-emerald-400'
-                            : 'bg-gray-300'
-                      }`}
-                      style={{ width: `${Math.min(100, Math.max(0, activeUpload.progress))}%` }}
-                    />
-                  </div>
-                  <div className="mt-2 flex items-center justify-between text-xs">
-                    <span className="font-semibold text-gray-600">{activeUpload.progress}%</span>
-                    <span className="text-gray-400">
-                      {activeUpload.status === 'done'
-                        ? 'Done'
-                        : activeUpload.status === 'error'
-                          ? 'Failed'
-                          : 'Uploading...'}
-                    </span>
+      <div className="pointer-events-none fixed right-4 bottom-4 z-[90] flex w-[min(100vw-2rem,360px)] flex-col gap-3">
+        <AnimatePresence>
+          {Object.entries(activeUploads).map(([id, upload]) => {
+            const overlayTone = getFileTypeTone(upload.type);
+            return (
+              <motion.div
+                key={id}
+                layout
+                initial={{ opacity: 0, y: 16, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 10, scale: 0.98 }}
+                transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+                className="pointer-events-auto rounded-3xl border border-gray-200 bg-gray-50 p-4 shadow-[0_16px_40px_rgba(0,0,0,0.12)]"
+              >
+                <div className="flex items-start gap-3">
+                  <span
+                    className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${overlayTone.wrap}`}
+                  >
+                    <FileTypeIcon type={upload.type} className="h-[18px] w-[18px]" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-vaultly-ink">
+                      {upload.name}
+                    </p>
+                    <p className="mt-0.5 text-xs text-vaultly-muted">
+                      {formatBytes(
+                        Math.round((upload.sizeBytes * upload.progress) / 100),
+                      )}{' '}
+                      / {formatBytes(upload.sizeBytes)}
+                    </p>
+                    <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white">
+                      <div
+                        className={`h-full w-0 max-w-full rounded-full transition-[width] duration-200 ${upload.status === 'error'
+                            ? 'bg-rose-400'
+                            : upload.status === 'done'
+                              ? 'bg-emerald-400'
+                              : 'bg-gray-300'
+                          }`}
+                        style={{ width: `${Math.min(100, Math.max(0, upload.progress))}%` }}
+                      />
+                    </div>
+                    <div className="mt-2 flex items-center justify-between text-xs">
+                      <span className="font-semibold text-gray-600">{upload.progress}%</span>
+                      <span className="text-gray-400">
+                        {upload.status === 'done'
+                          ? 'Done'
+                          : upload.status === 'error'
+                            ? 'Failed'
+                            : 'Uploading...'}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+              </motion.div>
+            );
+          })}
+        </AnimatePresence>
+      </div>
     </>
   );
 }

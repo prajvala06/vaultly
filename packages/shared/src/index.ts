@@ -35,6 +35,7 @@ export {
 
 export type {
   CreateFolderResponse,
+  DeleteFolderResponse,
   ListFoldersResponse,
   VaultFolderDto,
 } from './folders.js';

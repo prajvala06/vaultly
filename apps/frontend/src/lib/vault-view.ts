@@ -17,7 +17,15 @@ export type VaultViewCopy = {
 
 const RECENT_DAYS = 7;
 
-export function getVaultViewCopy(view: VaultView): VaultViewCopy {
+export function getVaultViewCopy(view: VaultView, folderName?: string | null): VaultViewCopy {
+  if (view === 'home') {
+    return {
+      title: 'Welcome back',
+      subtitle: 'Pick up where you left off',
+      emptyTitle: 'No files yet',
+      emptyMessage: 'Upload your first file to get started.',
+    };
+  }
   if (view === 'recent') {
     return {
       title: 'Recent files',
@@ -29,9 +37,9 @@ export function getVaultViewCopy(view: VaultView): VaultViewCopy {
   if (view === 'shared-with-me') {
     return {
       title: 'Shared with me',
-      subtitle: 'Files other people have shared with you',
-      emptyTitle: 'No shared files yet',
-      emptyMessage: 'When someone shares a file with your account, it will appear here.',
+      subtitle: 'Files and folders shared by others',
+      emptyTitle: 'Nothing shared yet',
+      emptyMessage: 'Files shared with you will appear here.',
     };
   }
   if (view === 'starred') {
@@ -51,11 +59,12 @@ export function getVaultViewCopy(view: VaultView): VaultViewCopy {
     };
   }
   if (view === 'my-vault') {
+    const title = folderName ? folderName.charAt(0).toUpperCase() + folderName.slice(1) : 'My Vault';
     return {
-      title: 'My Vault',
-      subtitle: 'Everything stored in your vault',
+      title,
+      subtitle: folderName ? `Files in ${title}` : 'Everything stored in your vault',
       emptyTitle: 'No files yet',
-      emptyMessage: 'Upload your first file to get started.',
+      emptyMessage: folderName ? `Upload your first file to ${title}.` : 'Upload your first file to get started.',
     };
   }
   return {

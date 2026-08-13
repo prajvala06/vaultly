@@ -35,7 +35,7 @@ function formatDisplayDate(date: Date): string {
   }).format(date);
 }
 
-function formatRelativeDay(date: Date): string {
+export function formatRelativeDay(date: Date): string {
   const now = new Date();
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const startOfTarget = new Date(date.getFullYear(), date.getMonth(), date.getDate());

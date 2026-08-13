@@ -1,6 +1,6 @@
 # Optional Zerops project import (Node.js API service).
 # In Zerops Dashboard: Project → Import services → paste this YAML.
-# Then connect GitHub and set secrets in the `api` service env.
+# Then connect GitHub and set secrets in the `vaultly` service env.
 
 project:
   name: vaultly
@@ -8,7 +8,7 @@ project:
     - vaultly
 
 services:
-  - hostname: api
+  - hostname: vaultly
     type: nodejs@22
     minContainers: 1
     maxContainers: 3

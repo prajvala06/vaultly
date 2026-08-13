@@ -65,7 +65,7 @@ export function VaultChrome({
   );
 }
 
-function VaultChromeContent({
+export function VaultChromeContent({
   isHome = false,
   title,
   subtitle,

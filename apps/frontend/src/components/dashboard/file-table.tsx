@@ -1,4 +1,4 @@
-import { MoreIcon, PlusIcon } from '@/components/icons';
+import { PlusIcon, TrashIcon } from '@/components/icons';
 import { FileTypeIcon, VisibilityBadge, getFileTypeTone } from '@/components/ui/badges';
 import type { VaultFile } from '@/lib/vault-file';
 import Image from 'next/image';
@@ -23,6 +23,7 @@ type FileTableProps = {
   showUploadAction?: boolean;
   folders?: readonly VaultFolderDto[];
   onSelectFolder?: (folderId: string) => void;
+  onDeleteFolder?: (folder: VaultFolderDto) => void;
 };
 
 export function FileTable({
@@ -35,10 +36,11 @@ export function FileTable({
   showUploadAction = true,
   folders = [],
   onSelectFolder,
+  onDeleteFolder,
 }: FileTableProps): React.ReactElement {
   if (files.length === 0 && folders.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-vaultly-border bg-white px-6 py-16 text-center shadow-vaultly">
+      <div className="flex flex-col items-center justify-center bg-white px-6 py-16 text-center">
         <Image
           src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRnIngcfrKBeDgxUOATcvIMseCRJyYA8XQ8Blbh-9sx0nT4x6hDJDX7ziY&s=10"
           width={140}
@@ -71,7 +73,9 @@ export function FileTable({
               <th className="px-4 py-3.5 font-semibold">Size</th>
               <th className="px-4 py-3.5 font-semibold">Visibility</th>
               <th className="px-4 py-3.5 font-semibold">Modified</th>
-
+              <th className="px-4 py-3.5 font-semibold">
+                <span className="sr-only">Actions</span>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -83,24 +87,39 @@ export function FileTable({
               >
                 <td className="px-4 py-3.5">
                   <div className="flex items-center gap-3">
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-vaultly-teal-soft">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center">
                       <Image
                         src="https://img.icons8.com/?size=512&id=oiCA327R8ADq&format=png"
                         alt={folder.name}
                         width={24}
                         height={24}
-                        className="h-6 w-6"
+                        className="h-10 w-10"
                       />
                     </span>
                     <span className="font-semibold text-vaultly-ink">{folder.name}</span>
                   </div>
                 </td>
-                <td className="px-4 py-3.5 text-vaultly-ink-soft">-</td>
+                <td className="px-4 py-3.5 text-vaultly-ink-soft">{folder.owner}</td>
                 <td className="px-4 py-3.5 text-vaultly-ink-soft">
                   {folder.fileCount === 1 ? '1 file' : `${folder.fileCount} files`}
                 </td>
                 <td className="px-4 py-3.5 text-vaultly-ink-soft">-</td>
-                <td className="px-4 py-3.5 text-vaultly-ink-soft">-</td>
+                <td className="px-4 py-3.5 text-vaultly-ink-soft">{folder.modifiedLabel}</td>
+                <td className="px-4 py-3.5">
+                  {onDeleteFolder ? (
+                    <button
+                      type="button"
+                      aria-label={`Delete folder ${folder.name}`}
+                      className="rounded-full p-2 text-vaultly-muted transition-colors hover:bg-rose-50 hover:text-vaultly-danger"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onDeleteFolder(folder);
+                      }}
+                    >
+                      <TrashIcon className="h-4 w-4" />
+                    </button>
+                  ) : null}
+                </td>
               </tr>
             ))}
             {files.map((file) => {
@@ -162,6 +181,7 @@ export function FileTable({
                     <VisibilityBadge visibility={file.visibility} />
                   </td>
                   <td className="px-4 py-3.5 text-vaultly-ink-soft">{file.modifiedLabel}</td>
+                  <td className="px-4 py-3.5" />
                 </tr>
               );
             })}
