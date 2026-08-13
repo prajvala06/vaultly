@@ -1,22 +1,13 @@
 export type AuthSessionUser = {
   name: string;
   email: string;
+  accessToken?: string;
 };
 
 const AUTH_SESSION_KEY = 'vaultly.auth.session';
 
-export function saveAuthSession(user: AuthSessionUser): void {
-  if (typeof window === 'undefined') {
-    return;
-  }
-  window.sessionStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(user));
-}
-
-export function readAuthSession(): AuthSessionUser | null {
-  if (typeof window === 'undefined') {
-    return null;
-  }
-  const rawValue: string | null = window.sessionStorage.getItem(AUTH_SESSION_KEY);
+function readSessionFromStorage(storage: Storage): AuthSessionUser | null {
+  const rawValue: string | null = storage.getItem(AUTH_SESSION_KEY);
   if (!rawValue) {
     return null;
   }
@@ -27,10 +18,32 @@ export function readAuthSession(): AuthSessionUser | null {
   }
 }
 
+export function saveAuthSession(user: AuthSessionUser): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  window.localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(user));
+  window.sessionStorage.removeItem(AUTH_SESSION_KEY);
+}
+
+export function readAuthSession(): AuthSessionUser | null {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  return readSessionFromStorage(window.localStorage) ?? readSessionFromStorage(window.sessionStorage);
+}
+
+export function readAccessToken(): string | null {
+  const session: AuthSessionUser | null = readAuthSession();
+  const accessToken: string | undefined = session?.accessToken?.trim();
+  return accessToken && accessToken.length > 0 ? accessToken : null;
+}
+
 export function clearAuthSession(): void {
   if (typeof window === 'undefined') {
     return;
   }
+  window.localStorage.removeItem(AUTH_SESSION_KEY);
   window.sessionStorage.removeItem(AUTH_SESSION_KEY);
 }
 

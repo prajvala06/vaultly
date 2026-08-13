@@ -35,6 +35,7 @@ type VerifyOtpData = {
     name: string;
     email: string;
   };
+  accessToken: string;
 };
 
 export function RegisterForm({
@@ -106,6 +107,7 @@ export function RegisterForm({
       saveAuthSession({
         name: result.user.name,
         email: result.user.email,
+        accessToken: result.accessToken,
       });
       pushToast({
         tone: 'success',

@@ -22,6 +22,7 @@ type LoginData = {
     name: string;
     email: string;
   };
+  accessToken: string;
 };
 
 export function LoginForm({
@@ -53,6 +54,7 @@ export function LoginForm({
       saveAuthSession({
         name: result.user.name,
         email: result.user.email,
+        accessToken: result.accessToken,
       });
       pushToast({
         tone: 'success',

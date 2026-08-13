@@ -1,5 +1,5 @@
 import type { ApiResponse, ListFileSharesResponse } from '@vaultly/shared';
-import { forceClientLogout } from '@/lib/auth-session';
+import { forceClientLogout, readAccessToken } from '@/lib/auth-session';
 
 const DEFAULT_API_URL = 'http://localhost:4000';
 
@@ -21,8 +21,11 @@ export function getFileContentUrl(fileId: string, download = false): string {
 }
 
 export async function downloadVaultFile(fileId: string, fileName: string): Promise<void> {
+  const headers = new Headers();
+  applyAuthHeaders(headers);
   const response: Response = await fetch(getFileContentUrl(fileId, true), {
     credentials: 'include',
+    headers,
   });
   if (!response.ok) {
     throw new ApiClientError(response.status, 'DOWNLOAD_FAILED', 'Could not download the file.');
@@ -76,6 +79,13 @@ async function parseApiResponse<T>(response: Response, skipAuthRedirect = false)
   return body.data;
 }
 
+function applyAuthHeaders(headers: Headers): void {
+  const accessToken: string | null = readAccessToken();
+  if (accessToken && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${accessToken}`);
+  }
+}
+
 type ApiRequestInit = RequestInit & {
   skipAuthRedirect?: boolean;
 };
@@ -87,6 +97,7 @@ export async function apiRequest<T>(path: string, init: ApiRequestInit = {}): Pr
   if (!isFormData && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
+  applyAuthHeaders(headers);
   const response: Response = await fetch(`${getApiBaseUrl()}${path}`, {
     ...fetchInit,
     credentials: 'include',
@@ -112,6 +123,10 @@ export async function apiUploadFile<T>(
     const xhr = new XMLHttpRequest();
     xhr.open('POST', `${getApiBaseUrl()}${path}`);
     xhr.withCredentials = true;
+    const accessToken: string | null = readAccessToken();
+    if (accessToken) {
+      xhr.setRequestHeader('Authorization', `Bearer ${accessToken}`);
+    }
     xhr.upload.onprogress = (event: ProgressEvent<EventTarget>) => {
       if (!options?.onProgress || !event.lengthComputable || event.total <= 0) {
         return;

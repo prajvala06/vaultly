@@ -33,7 +33,7 @@ authRouter.post('/login', async (req, res, next) => {
   try {
     const result = await loginUser(req.body);
     setAccessTokenCookie(res, result.accessToken);
-    return sendSuccess(res, { user: result.user });
+    return sendSuccess(res, { user: result.user, accessToken: result.accessToken });
   } catch (error) {
     if (error instanceof ZodError) {
       return next(mapZodError(error));
@@ -46,7 +46,7 @@ authRouter.post('/verify-otp', async (req, res, next) => {
   try {
     const result = await verifyRegisterOtp(req.body);
     setAccessTokenCookie(res, result.accessToken);
-    return sendSuccess(res, { user: result.user });
+    return sendSuccess(res, { user: result.user, accessToken: result.accessToken });
   } catch (error) {
     if (error instanceof ZodError) {
       return next(mapZodError(error));
